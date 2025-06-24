@@ -1,0 +1,98 @@
+server:
+  http2:
+    enabled: true
+
+spring:
+  profiles:
+    active: dev
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_DB_SERVER_ADDRESS:localhost}:${POSTGRES_DB_SERVER_PORT:5432}/
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:example}
+    hikari:
+      pool-name: SpringBootBoilerplateHikariPool
+  jpa:
+    hibernate:
+      ddl-auto: create
+    open-in-view: false
+  jta:
+    enabled: false
+
+springdoc:
+  show-actuator: true
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  group-configs:
+    - group: 'Device Management API'
+      paths-to-match: '/api/devices/**'
+    - group: 'Device Sub-Components API'
+      paths-to-match: '/api/device-interfaces/**,/api/system-units/**,/api/ip-profiles/**,/api/udp-profiles/**,/api/icmp-profiles/**'
+    - group: 'MIB Management API'
+      paths-to-match: '/api/mib/**'
+    - group: 'Alert Management API'
+      paths-to-match: '/api/alerts/**'
+    - group: 'Discovery & Monitoring API'
+      paths-to-match: '/api/discovery/**,/api/snmp-polling/**'
+    - group: 'Trap Management API'
+      paths-to-match: '/api/v1/traps/**'
+    - group: 'Authentication API'
+      paths-to-match: '/login,/register'
+
+management:
+  endpoint:
+    health:
+      show-details: ALWAYS
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+logging:
+  level:
+    '[org.springframework]': INFO
+    '[com.farukgenc.boilerplate.springboot]': INFO
+
+# Custom application configuration
+app:
+  monitoring:
+    enabled: true
+    interval: 300000 # 5 minutes in milliseconds
+    snmp-timeout: 5000
+    ping-timeout: 5000
+  websocket:
+    enabled: true
+    allowed-origins: "*"
+    heartbeat-interval: 30000
+  trap-receiver:
+    enabled: true
+    port: 162 # Standard SNMP trap port
+    community: public
+    auto-start: true
+    cleanup-enabled: true
+    cleanup-interval-hours: 24
+    cleanup-retention-days: 30
+
+## FIXME : Customize JWT token and Swagger information for your application
+
+jwt:
+  secretKey: secret
+  issuer: www.farukgenc.com
+  expirationMinute: 10
+
+swagger:
+  contact-name: Abdessalam Dakhissi
+  contact-mail: 
+  contact-url: 
+  app-name: Spring Boot Network Management System based on Boilerplate by Faruk Genc
+  app-description: "Spring Boot Network Management System with MIB management, Device monitoring, Alert service, and Network discovery capabilities. Includes SNMP monitoring, WebSocket notifications, and comprehensive device discovery features."
+  app-version: 1.0.0
+  app-license-url: https://www.apache.org/licenses/LICENSE-2.0.html
+  app-license: Apache 2.0

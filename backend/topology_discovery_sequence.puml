@@ -1,0 +1,232 @@
+@startuml Network Topology Discovery - Sequence Diagram
+
+!theme aws-orange
+
+title Network Topology Discovery Process - Sequence Diagram
+
+actor "Frontend (Axios)" as frontend
+participant "DiscoveryController" as discoveryCtrl
+participant "DiscoveryServiceImpl" as discoveryService
+participant "SnmpDiscoveryService" as snmpDiscovery
+participant "NmapDiscoveryService" as nmapDiscovery
+participant "SimpMessagingTemplate" as websocket
+participant "WebSocket Client" as wsClient
+participant "DiscoveryWebSocketController" as wsController
+participant "Network Devices" as devices
+database "Discovery Results Cache" as cache
+
+== Discovery Initiation ==
+
+frontend -> discoveryCtrl : POST /api/discovery/start
+note right of frontend
+  Request Body:
+  {
+    "target": "192.168.1.0/24",
+    "useSnmp": true,
+    "useNmap": true,
+    "useIcmp": true,
+    "snmpCommunity": "public",
+    "maxHops": 3,
+    "threadCount": 10
+  }
+end note
+
+activate discoveryCtrl
+discoveryCtrl -> discoveryCtrl : convertToRequestDto(request, user)
+discoveryCtrl -> discoveryService : startDiscovery(requestDto)
+
+activate discoveryService
+discoveryService -> discoveryService : generateDiscoveryId = UUID.randomUUID()
+discoveryService -> cache : store discoveryRequests.put(id, request)
+discoveryService -> cache : store discoveryResults.put(id, initialResult)
+
+discoveryService -> discoveryService : executeDiscoveryAsync(id, request)
+note right of discoveryService
+  @Async method starts
+  background processing
+end note
+
+discoveryService --> discoveryCtrl : discoveryId
+deactivate discoveryService
+
+discoveryCtrl --> frontend : 202 ACCEPTED
+note right of discoveryCtrl
+  Response:
+  {
+    "discoveryId": "uuid-123",
+    "status": "PENDING",
+    "websocketEndpoint": "/topic/discovery/uuid-123/progress"
+  }
+end note
+deactivate discoveryCtrl
+
+== WebSocket Connection ==
+
+frontend -> wsClient : connect to /ws endpoint
+activate wsClient
+wsClient -> wsController : subscribe to /topic/discovery/uuid-123/progress
+activate wsController
+wsController -> discoveryService : getDiscoveryResult(discoveryId)
+wsController -> wsClient : send current status
+deactivate wsController
+
+== Asynchronous Discovery Process ==
+
+discoveryService -> websocket : sendProgressUpdate("INITIALIZING")
+websocket -> wsClient : progress update (0%)
+wsClient -> frontend : onProgressUpdate(progress)
+
+== Phase 1: Initial Network Scan ==
+
+alt request.isUseNmap() || request.isUseIcmp()
+    discoveryService -> websocket : sendProgressUpdate("NMAP_SCAN")
+    websocket -> wsClient : progress update (5%)
+    wsClient -> frontend : onProgressUpdate("Performing initial network scan")
+    
+    discoveryService -> nmapDiscovery : discoverDevices(target, nmapOptions, progressCallback)
+    activate nmapDiscovery
+    
+    loop for each IP in subnet range
+        nmapDiscovery -> devices : ping/port scan
+        devices --> nmapDiscovery : response/timeout
+        
+        opt device responds
+            nmapDiscovery -> nmapDiscovery : create NetworkNodeDto
+            nmapDiscovery -> discoveryService : progressCallback.onProgressUpdate()
+            discoveryService -> websocket : sendProgressUpdate(found devices)
+            websocket -> wsClient : progress update
+            wsClient -> frontend : onProgressUpdate("Device found: x.x.x.x")
+        end
+    end
+    
+    nmapDiscovery --> discoveryService : List<NetworkNodeDto> initialNodes
+    deactivate nmapDiscovery
+    
+    discoveryService -> cache : updateDiscoveryResults(id, nodes, connections)
+    discoveryService -> websocket : sendProgressUpdate("Initial scan complete")
+    websocket -> wsClient : progress update (20%)
+    wsClient -> frontend : onProgressUpdate("Found X devices")
+end
+
+== Phase 2: SNMP Discovery (Multi-hop) ==
+
+discoveryService -> websocket : sendProgressUpdate("SNMP_DISCOVERY")
+websocket -> wsClient : progress update
+wsClient -> frontend : onProgressUpdate("Starting SNMP discovery")
+
+loop currentHop < maxHops && pendingDevices not empty
+    discoveryService -> discoveryService : currentHop++
+    
+    loop for each IP in currentBatch (parallel processing)
+        discoveryService -> snmpDiscovery : discoverDeviceDetails(ip, community, version)
+        activate snmpDiscovery
+        
+        snmpDiscovery -> devices : SNMP GET requests
+        note right of snmpDiscovery
+          SNMP OIDs queried:
+          - 1.3.6.1.2.1.1.1.0 (sysDescr)
+          - 1.3.6.1.2.1.1.2.0 (sysObjectID)
+          - 1.3.6.1.2.1.1.3.0 (sysUpTime)
+          - 1.3.6.1.2.1.1.5.0 (sysName)
+          - 1.3.6.1.2.1.2.2.1.x (ifTable)
+        end note
+        
+        alt SNMP responds
+            devices --> snmpDiscovery : SNMP response data
+            snmpDiscovery -> snmpDiscovery : parseSnmpData()
+            snmpDiscovery -> snmpDiscovery : createNetworkNodeDto()
+            
+            opt discover interfaces
+                snmpDiscovery -> devices : SNMP WALK ifTable
+                devices --> snmpDiscovery : interface data
+                snmpDiscovery -> snmpDiscovery : createInterfaceDto()
+            end
+            
+            opt discover neighbors (LLDP/CDP)
+                snmpDiscovery -> devices : SNMP GET neighbor tables
+                devices --> snmpDiscovery : neighbor data
+                snmpDiscovery -> discoveryService : add to pendingDevices
+            end
+            
+        else SNMP timeout/error
+            devices --> snmpDiscovery : timeout/error
+            snmpDiscovery -> snmpDiscovery : createBasicNodeDto()
+        end
+        
+        snmpDiscovery --> discoveryService : NetworkNodeDto
+        deactivate snmpDiscovery
+        
+        discoveryService -> websocket : sendProgressUpdate(current progress)
+        websocket -> wsClient : progress update
+        wsClient -> frontend : onProgressUpdate("Scanning device: x.x.x.x")
+    end
+    
+    discoveryService -> cache : updateDiscoveryResults(id, newNodes, connections)
+    discoveryService -> websocket : sendProgressUpdate(hop complete)
+    websocket -> wsClient : progress update (20 + 60*hop/maxHops)%
+    wsClient -> frontend : onProgressUpdate("Hop X complete")
+end
+
+== Phase 3: Topology Building ==
+
+discoveryService -> websocket : sendProgressUpdate("BUILDING_TOPOLOGY")
+websocket -> wsClient : progress update (85%)
+wsClient -> frontend : onProgressUpdate("Building network topology")
+
+discoveryService -> discoveryService : analyzeConnections()
+discoveryService -> discoveryService : createTopologyGraph()
+discoveryService -> cache : finalResult = buildFinalTopology()
+
+== Discovery Completion ==
+
+discoveryService -> websocket : sendProgressUpdate("COMPLETED")
+websocket -> wsClient : progress update (100%)
+wsClient -> frontend : onProgressUpdate("Discovery complete")
+
+discoveryService -> cache : discoveryResults.put(id, finalResult)
+discoveryService -> cache : discoveryTasks.remove(id)
+
+== Frontend Polling for Results ==
+
+frontend -> discoveryCtrl : GET /api/discovery/status/uuid-123
+activate discoveryCtrl
+discoveryCtrl -> discoveryService : getDiscoveryResult(discoveryId)
+discoveryService -> cache : retrieve final results
+discoveryService --> discoveryCtrl : TopologyResponseDto
+discoveryCtrl --> frontend : 200 OK with topology data
+deactivate discoveryCtrl
+
+note right of frontend
+  Response includes:
+  - discovered nodes with details
+  - network connections/links
+  - device interfaces
+  - topology metadata
+end note
+
+== Optional: Discovery Cancellation ==
+
+opt user cancels discovery
+    frontend -> wsController : send cancel message via WebSocket
+    activate wsController
+    wsController -> discoveryService : cancelDiscovery(discoveryId)
+    discoveryService -> discoveryService : cancel running tasks
+    discoveryService -> cache : update status to "CANCELLED"
+    discoveryService -> websocket : sendProgressUpdate("CANCELLED")
+    websocket -> wsClient : cancellation confirmed
+    wsController -> wsClient : cancellation response
+    wsClient -> frontend : onDiscoveryCancelled()
+    deactivate wsController
+end
+
+== Error Handling ==
+
+opt discovery fails
+    discoveryService -> websocket : sendProgressUpdate("FAILED")
+    websocket -> wsClient : error progress update
+    wsClient -> frontend : onDiscoveryError(error)
+    
+    discoveryService -> cache : update status to "FAILED"
+end
+
+@enduml

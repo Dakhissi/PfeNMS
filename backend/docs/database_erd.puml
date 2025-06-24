@@ -1,0 +1,300 @@
+@startuml Network Management System - Entity Relationship Diagram
+
+!theme aws-orange
+
+title Network Management System - Database Schema (ERD)
+
+' Define entities with their attributes
+entity "users" {
+    * id : BIGINT <<PK>>
+    --
+    * name : VARCHAR(255)
+    * username : VARCHAR(255) <<UK>>
+    * password : VARCHAR(255)
+    email : VARCHAR(255)
+    * user_role : VARCHAR(50)
+}
+
+entity "devices" {
+    * id : BIGINT <<PK>>
+    --
+    * name : VARCHAR(255)
+    description : TEXT
+    system_object_id : VARCHAR(255)
+    system_uptime : BIGINT
+    system_contact : VARCHAR(255)
+    system_name : VARCHAR(255)
+    system_location : VARCHAR(255)
+    system_services : INTEGER
+    last_monitored : TIMESTAMP
+    monitoring_enabled : BOOLEAN
+    * status : VARCHAR(50)
+    * type : VARCHAR(50)
+    * user_id : BIGINT <<FK>>
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+entity "device_configs" {
+    * id : BIGINT <<PK>>
+    --
+    * device_id : BIGINT <<FK>> <<UK>>
+    * target_ip : VARCHAR(45)
+    snmp_port : INTEGER
+    * snmp_version : VARCHAR(10)
+    community_string : VARCHAR(255)
+    snmp_timeout : INTEGER
+    snmp_retries : INTEGER
+    snmp_username : VARCHAR(255)
+    snmp_auth_password : VARCHAR(255)
+    snmp_priv_password : VARCHAR(255)
+    auth_protocol : VARCHAR(20)
+    priv_protocol : VARCHAR(20)
+    snmp_context_name : VARCHAR(255)
+    snmp_engine_id : VARCHAR(255)
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+entity "device_interfaces" {
+    * id : BIGINT <<PK>>
+    --
+    * if_index : INTEGER
+    if_descr : VARCHAR(1000)
+    if_type : VARCHAR(50)
+    if_mtu : INTEGER
+    if_speed : BIGINT
+    if_phys_address : VARCHAR(500)
+    if_admin_status : VARCHAR(20)
+    if_oper_status : VARCHAR(20)
+    if_last_change : BIGINT
+    if_in_octets : BIGINT
+    if_in_ucast_pkts : BIGINT
+    if_in_nucast_pkts : BIGINT
+    if_in_discards : BIGINT
+    if_in_errors : BIGINT
+    if_in_unknown_protos : BIGINT
+    if_out_octets : BIGINT
+    if_out_ucast_pkts : BIGINT
+    if_out_nucast_pkts : BIGINT
+    if_out_discards : BIGINT
+    if_out_errors : BIGINT
+    if_out_qlen : BIGINT
+    * device_id : BIGINT <<FK>>
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+entity "system_units" {
+    * id : BIGINT <<PK>>
+    --
+    * index : INTEGER
+    descr : VARCHAR(500)
+    object_id : VARCHAR(255)
+    up_time : INTEGER
+    contact : VARCHAR(255)
+    name : VARCHAR(255)
+    location : VARCHAR(255)
+    services : INTEGER
+    * device_id : BIGINT <<FK>>
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+entity "ip_profiles" {
+    * id : BIGINT <<PK>>
+    --
+    * name : VARCHAR(255)
+    description : TEXT
+    ip_address : VARCHAR(45)
+    timeout : INTEGER
+    interval : INTEGER
+    * enabled : BOOLEAN
+    * device_id : BIGINT <<FK>>
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+entity "icmp_profiles" {
+    * id : BIGINT <<PK>>
+    --
+    * name : VARCHAR(255)
+    description : TEXT
+    target_host : VARCHAR(255)
+    packet_size : INTEGER
+    timeout : INTEGER
+    interval : INTEGER
+    max_hops : INTEGER
+    * enabled : BOOLEAN
+    * device_id : BIGINT <<FK>>
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+entity "udp_profiles" {
+    * id : BIGINT <<PK>>
+    --
+    * name : VARCHAR(255)
+    description : TEXT
+    target_host : VARCHAR(255)
+    port : INTEGER
+    test_data : VARCHAR(1000)
+    timeout : INTEGER
+    interval : INTEGER
+    * enabled : BOOLEAN
+    * device_id : BIGINT <<FK>>
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+entity "alerts" {
+    * id : BIGINT <<PK>>
+    --
+    * type : VARCHAR(50)
+    * severity : VARCHAR(20)
+    * status : VARCHAR(20)
+    * title : VARCHAR(255)
+    description : TEXT
+    source_id : BIGINT
+    source_type : VARCHAR(50)
+    source_description : VARCHAR(500)
+    details : TEXT
+    * user_id : BIGINT <<FK>>
+    acknowledged_at : TIMESTAMP
+    acknowledged_by_id : BIGINT <<FK>>
+    resolved_at : TIMESTAMP
+    resolved_by_id : BIGINT <<FK>>
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+entity "trap_events" {
+    * id : BIGINT <<PK>>
+    --
+    * source_ip : VARCHAR(45)
+    source_port : INTEGER
+    community : VARCHAR(255)
+    * trap_oid : VARCHAR(255)
+    enterprise_oid : VARCHAR(255)
+    generic_trap : INTEGER
+    specific_trap : INTEGER
+    timestamp : BIGINT
+    uptime : BIGINT
+    agent_address : VARCHAR(45)
+    severity : VARCHAR(20)
+    description : TEXT
+    * processed : BOOLEAN
+    processed_at : TIMESTAMP
+    alert_id : BIGINT
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+entity "trap_variables" {
+    * id : BIGINT <<PK>>
+    --
+    * oid : VARCHAR(255)
+    * type : VARCHAR(50)
+    value : TEXT
+    * trap_event_id : BIGINT <<FK>>
+}
+
+entity "mib_files" {
+    * id : BIGINT <<PK>>
+    --
+    * name : VARCHAR(255)
+    description : TEXT
+    version : VARCHAR(100)
+    file_path : VARCHAR(500)
+    content : TEXT
+    * active : BOOLEAN
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+entity "mib_objects" {
+    * id : BIGINT <<PK>>
+    --
+    * oid : VARCHAR(255)
+    * name : VARCHAR(255)
+    description : TEXT
+    syntax : VARCHAR(100)
+    access : VARCHAR(50)
+    status : VARCHAR(50)
+    * mib_file_id : BIGINT <<FK>>
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+entity "system_info" {
+    * id : BIGINT <<PK>>
+    --
+    sys_descr : TEXT
+    sys_object_id : VARCHAR(255)
+    sys_up_time : BIGINT
+    sys_contact : VARCHAR(255)
+    sys_name : VARCHAR(255)
+    sys_location : VARCHAR(255)
+    sys_services : INTEGER
+    * device_id : BIGINT <<FK>>
+    created_at : TIMESTAMP
+    updated_at : TIMESTAMP
+}
+
+' Define relationships
+users ||--o{ devices : "owns"
+devices ||--|| device_configs : "has configuration"
+devices ||--o{ device_interfaces : "contains"
+devices ||--o{ system_units : "has units"
+devices ||--o{ ip_profiles : "monitors"
+devices ||--o{ icmp_profiles : "pings"
+devices ||--o{ udp_profiles : "tests"
+devices ||--|| system_info : "system details"
+
+users ||--o{ alerts : "receives"
+users ||--o{ alerts : "acknowledges (optional)"
+users ||--o{ alerts : "resolves (optional)"
+
+trap_events ||--o{ trap_variables : "contains"
+trap_events ||--o| alerts : "may generate"
+
+mib_files ||--o{ mib_objects : "defines"
+
+' Indexes and constraints
+note top of devices
+    Indexes:
+    - idx_devices_user_id
+    - idx_devices_status
+    - idx_devices_monitoring_enabled
+end note
+
+note top of device_interfaces
+    Indexes:
+    - idx_interfaces_device_id
+    - idx_interfaces_if_index
+    - uk_device_if_index (device_id, if_index)
+end note
+
+note top of alerts
+    Indexes:
+    - idx_alerts_user_id
+    - idx_alerts_status
+    - idx_alerts_created_at
+    - idx_alerts_source
+end note
+
+note top of trap_events
+    Indexes:
+    - idx_trap_events_source_ip
+    - idx_trap_events_processed
+    - idx_trap_events_created_at
+end note
+
+note bottom of mib_objects
+    Indexes:
+    - idx_mib_objects_oid
+    - idx_mib_objects_name
+    - idx_mib_objects_mib_file_id
+end note
+
+@enduml

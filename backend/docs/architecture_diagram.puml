@@ -1,0 +1,190 @@
+@startuml Network Management System - Architecture Diagram
+
+!theme aws-orange
+
+title Network Management System - Architecture Overview
+
+' Client Layer
+package "Client Layer" {
+    [Web Browser] as browser
+    [Mobile App] as mobile
+    [API Client] as client
+}
+
+' API Gateway / Load Balancer
+[API Gateway] as gateway
+
+' Presentation Layer
+package "Presentation Layer" {
+    [Device Controller] as deviceCtrl
+    [Alert Controller] as alertCtrl
+    [Discovery Controller] as discoveryCtrl
+    [Trap Controller] as trapCtrl
+    [MIB Controller] as mibCtrl
+    [Auth Controller] as authCtrl
+    [Profile Controllers] as profileCtrl
+}
+
+' Security Layer
+package "Security Layer" {
+    [JWT Filter] as jwtFilter
+    [Security Config] as secConfig
+    [User Details Service] as userDetails
+}
+
+' Service Layer
+package "Service Layer" {
+    package "Core Services" {
+        [Device Service] as deviceSvc
+        [Alert Service] as alertSvc
+        [User Service] as userSvc
+        [Discovery Service] as discoverySvc
+        [Profile Services] as profileSvc
+    }
+    
+    package "SNMP Services" {
+        [SNMP Polling Service] as pollingSvc
+        [SNMP Client Service] as clientSvc
+        [Trap Service] as trapSvc
+        [Interface Poll Service] as interfaceSvc
+        [System Poll Service] as systemSvc
+    }
+    
+    package "Monitoring Services" {
+        [Device Monitoring] as monitorSvc
+        [Alert Notification] as notificationSvc
+        [Duplicate Prevention] as dupPreventSvc
+    }
+}
+
+' Data Access Layer
+package "Data Access Layer" {
+    [Device Repository] as deviceRepo
+    [Alert Repository] as alertRepo
+    [User Repository] as userRepo
+    [Trap Repository] as trapRepo
+    [Interface Repository] as interfaceRepo
+    [MIB Repository] as mibRepo
+    [Profile Repositories] as profileRepo
+}
+
+' Database Layer
+database "PostgreSQL Database" {
+    [Users Table] as usersTable
+    [Devices Table] as devicesTable
+    [Device Config Table] as configTable
+    [Interfaces Table] as interfacesTable
+    [Alerts Table] as alertsTable
+    [Traps Table] as trapsTable
+    [MIB Tables] as mibTables
+    [Profile Tables] as profileTables
+}
+
+' External Systems
+package "External Systems" {
+    [Network Devices] as networkDevices
+    [SNMP Agents] as snmpAgents
+    [Email Server] as emailServer
+    [File System] as fileSystem
+}
+
+' Message Queue / Event System
+[Spring Events] as events
+
+' Scheduled Tasks
+package "Scheduled Tasks" {
+    [Polling Scheduler] as scheduler
+    [Cleanup Tasks] as cleanup
+}
+
+' Client connections
+browser --> gateway : HTTPS
+mobile --> gateway : HTTPS
+client --> gateway : HTTPS/REST
+
+' Gateway to controllers
+gateway --> deviceCtrl
+gateway --> alertCtrl
+gateway --> discoveryCtrl
+gateway --> trapCtrl
+gateway --> mibCtrl
+gateway --> authCtrl
+gateway --> profileCtrl
+
+' Security filter chain
+gateway --> jwtFilter
+jwtFilter --> secConfig
+secConfig --> userDetails
+
+' Controller to service relationships
+deviceCtrl --> deviceSvc
+alertCtrl --> alertSvc
+discoveryCtrl --> discoverySvc
+trapCtrl --> trapSvc
+mibCtrl --> mibRepo
+authCtrl --> userSvc
+profileCtrl --> profileSvc
+
+' Service layer internal relationships
+deviceSvc --> monitorSvc
+pollingSvc --> clientSvc
+pollingSvc --> interfaceSvc
+pollingSvc --> systemSvc
+trapSvc --> alertSvc
+monitorSvc --> alertSvc
+alertSvc --> notificationSvc
+pollingSvc --> dupPreventSvc
+
+' Service to repository relationships
+deviceSvc --> deviceRepo
+alertSvc --> alertRepo
+userSvc --> userRepo
+trapSvc --> trapRepo
+interfaceSvc --> interfaceRepo
+profileSvc --> profileRepo
+
+' Repository to database relationships
+deviceRepo --> devicesTable
+deviceRepo --> configTable
+alertRepo --> alertsTable
+userRepo --> usersTable
+trapRepo --> trapsTable
+interfaceRepo --> interfacesTable
+mibRepo --> mibTables
+profileRepo --> profileTables
+
+' External system connections
+pollingSvc --> snmpAgents : SNMP Polls
+clientSvc --> networkDevices : SNMP Requests
+trapSvc <-- snmpAgents : SNMP Traps
+discoverySvc --> networkDevices : Network Discovery
+notificationSvc --> emailServer : Email Alerts
+mibRepo --> fileSystem : MIB Files
+
+' Event-driven communication
+trapSvc --> events : Trap Events
+events --> alertSvc : Alert Events
+scheduler --> pollingSvc : Scheduled Polling
+
+' Data flow notes
+note right of pollingSvc
+  Polls devices every 30 seconds
+  for status and statistics
+end note
+
+note bottom of trapSvc
+  Listens on UDP port 162
+  for incoming SNMP traps
+end note
+
+note left of dupPreventSvc
+  Prevents duplicate alerts
+  and data collection
+end note
+
+note top of scheduler
+  Uses @Scheduled annotations
+  for automatic polling
+end note
+
+@enduml

@@ -1,0 +1,114 @@
+@startuml Network Topology Discovery - Simplified Concept
+
+!theme aws-orange
+
+title Network Topology Discovery - Conceptual Flow
+
+actor "User" as user
+participant "Web Frontend" as frontend
+participant "Discovery API" as api
+participant "Discovery Service" as service
+participant "WebSocket" as ws
+participant "Network Scanner" as scanner
+participant "Network Devices" as devices
+
+== Discovery Request ==
+
+user -> frontend : Start Network Discovery
+frontend -> api : POST /api/discovery/start
+note right of frontend
+  Target: 192.168.1.0/24
+  Methods: SNMP, Ping, Port Scan
+end note
+
+api -> service : initiate discovery
+service -> service : generate discovery ID
+service --> api : discovery ID
+api --> frontend : 202 Accepted + WebSocket endpoint
+
+== Real-time Updates Setup ==
+
+frontend -> ws : connect to WebSocket
+ws -> frontend : connection established
+
+== Background Discovery Process ==
+
+service -> ws : "Starting discovery..."
+ws -> frontend : progress update
+frontend -> user : show progress (0%)
+
+== Phase 1: Network Scanning ==
+
+service -> scanner : scan network range
+activate scanner
+
+loop for each IP in range
+    scanner -> devices : ping / port scan
+    devices --> scanner : alive / no response
+    
+    opt device found
+        scanner -> service : device discovered
+        service -> ws : "Device found: x.x.x.x"
+        ws -> frontend : update device count
+        frontend -> user : show progress (20%)
+    end
+end
+
+scanner --> service : initial device list
+deactivate scanner
+
+== Phase 2: Device Details ==
+
+service -> ws : "Gathering device details..."
+ws -> frontend : progress update
+frontend -> user : show progress (40%)
+
+loop for each discovered device
+    service -> scanner : get device details via SNMP
+    activate scanner
+    
+    scanner -> devices : SNMP queries
+    note right of scanner
+      Get system info,
+      interfaces, neighbors
+    end note
+    
+    devices --> scanner : device information
+    scanner --> service : device details
+    deactivate scanner
+    
+    service -> ws : "Scanned device: [name]"
+    ws -> frontend : update progress
+    frontend -> user : show progress (60%)
+end
+
+== Phase 3: Topology Building ==
+
+service -> service : analyze connections
+service -> service : build network map
+
+service -> ws : "Building topology..."
+ws -> frontend : progress update
+frontend -> user : show progress (85%)
+
+== Discovery Complete ==
+
+service -> ws : "Discovery complete!"
+ws -> frontend : final update
+frontend -> user : show progress (100%)
+
+== Results Retrieval ==
+
+user -> frontend : view results
+frontend -> api : GET /api/discovery/results
+api -> service : get topology data
+service --> api : network topology
+api --> frontend : topology data
+frontend -> user : display network map
+
+note right of user
+  Shows discovered devices,
+  connections, and network structure
+end note
+
+@enduml

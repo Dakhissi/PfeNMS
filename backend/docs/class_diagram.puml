@@ -1,0 +1,401 @@
+@startuml Network Management System - Class Diagram
+
+!theme aws-orange
+
+' Title
+title Network Management System - Class Diagram
+
+' User Management Package
+package "User Management" {
+    class User {
+        - Long id
+        - String name
+        - String username
+        - String password
+        - String email
+        - UserRole userRole
+        - List<Device> devices
+    }
+    
+    enum UserRole {
+        ADMIN
+        USER
+    }
+}
+
+' Device Management Package
+package "Device Management" {
+    class Device {
+        - Long id
+        - String name
+        - String description
+        - String systemObjectId
+        - Long systemUptime
+        - String systemContact
+        - String systemName
+        - String systemLocation
+        - Integer systemServices
+        - LocalDateTime lastMonitored
+        - Boolean monitoringEnabled
+        - DeviceStatus status
+        - DeviceType type
+        - User user
+        - List<DeviceInterface> interfaces
+        - List<SystemUnit> systemUnits
+        - List<IpProfile> ipProfiles
+        - List<IcmpProfile> icmpProfiles
+        - List<UdpProfile> udpProfiles
+        - DeviceConfig deviceConfig
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+    
+    class DeviceConfig {
+        - Long id
+        - Device device
+        - String targetIp
+        - Integer snmpPort
+        - SnmpVersion snmpVersion
+        - String communityString
+        - Integer snmpTimeout
+        - Integer snmpRetries
+        - String snmpUsername
+        - String snmpAuthPassword
+        - String snmpPrivPassword
+        - AuthProtocol authProtocol
+        - PrivProtocol privProtocol
+        - String snmpContextName
+        - String snmpEngineId
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+    
+    class DeviceInterface {
+        - Long id
+        - Integer ifIndex
+        - String ifDescr
+        - InterfaceType ifType
+        - Integer ifMtu
+        - Long ifSpeed
+        - String ifPhysAddress
+        - InterfaceStatus ifAdminStatus
+        - InterfaceStatus ifOperStatus
+        - Long ifLastChange
+        - Long ifInOctets
+        - Long ifInUcastPkts
+        - Long ifInNucastPkts
+        - Long ifInDiscards
+        - Long ifInErrors
+        - Long ifInUnknownProtos
+        - Long ifOutOctets
+        - Long ifOutUcastPkts
+        - Long ifOutNucastPkts
+        - Long ifOutDiscards
+        - Long ifOutErrors
+        - Long ifOutQLen
+        - Device device
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+    
+    class SystemUnit {
+        - Long id
+        - Integer index
+        - String descr
+        - String objectId
+        - Integer upTime
+        - String contact
+        - String name
+        - String location
+        - Integer services
+        - Device device
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+    
+    enum DeviceStatus {
+        ACTIVE
+        INACTIVE
+        MAINTENANCE
+        ERROR
+    }
+    
+    enum DeviceType {
+        ROUTER
+        SWITCH
+        SERVER
+        WORKSTATION
+        PRINTER
+        FIREWALL
+        ACCESS_POINT
+        OTHER
+    }
+    
+    enum SnmpVersion {
+        V1
+        V2C
+        V3
+    }
+    
+    enum InterfaceType {
+        ETHERNET
+        WIRELESS
+        LOOPBACK
+        TUNNEL
+        OTHER
+    }
+    
+    enum InterfaceStatus {
+        UP
+        DOWN
+        TESTING
+    }
+}
+
+' Monitoring Profiles Package
+package "Monitoring Profiles" {
+    class IpProfile {
+        - Long id
+        - String name
+        - String description
+        - String ipAddress
+        - Integer timeout
+        - Integer interval
+        - Boolean enabled
+        - Device device
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+    
+    class IcmpProfile {
+        - Long id
+        - String name
+        - String description
+        - String targetHost
+        - Integer packetSize
+        - Integer timeout
+        - Integer interval
+        - Integer maxHops
+        - Boolean enabled
+        - Device device
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+    
+    class UdpProfile {
+        - Long id
+        - String name
+        - String description
+        - String targetHost
+        - Integer port
+        - String testData
+        - Integer timeout
+        - Integer interval
+        - Boolean enabled
+        - Device device
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+}
+
+' Alert Management Package
+package "Alert Management" {
+    class Alert {
+        - Long id
+        - AlertType type
+        - AlertSeverity severity
+        - AlertStatus status
+        - String title
+        - String description
+        - Long sourceId
+        - SourceType sourceType
+        - String sourceDescription
+        - String details
+        - User user
+        - LocalDateTime acknowledgedAt
+        - User acknowledgedBy
+        - LocalDateTime resolvedAt
+        - User resolvedBy
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+    
+    enum AlertType {
+        DEVICE_DOWN
+        DEVICE_UP
+        INTERFACE_DOWN
+        INTERFACE_UP
+        HIGH_CPU_USAGE
+        HIGH_MEMORY_USAGE
+        HIGH_BANDWIDTH_USAGE
+        SNMP_TIMEOUT
+        AUTHENTICATION_FAILURE
+        CONFIGURATION_CHANGE
+        TRAP_RECEIVED
+    }
+    
+    enum AlertSeverity {
+        CRITICAL
+        HIGH
+        MEDIUM
+        LOW
+        INFO
+    }
+    
+    enum AlertStatus {
+        ACTIVE
+        ACKNOWLEDGED
+        RESOLVED
+        CLOSED
+    }
+    
+    enum SourceType {
+        DEVICE
+        INTERFACE
+        SYSTEM_UNIT
+        SNMP_PROFILE
+        ICMP_PROFILE
+        UDP_PROFILE
+    }
+}
+
+' SNMP Trap Management Package
+package "SNMP Trap Management" {
+    class TrapEvent {
+        - Long id
+        - String sourceIp
+        - Integer sourcePort
+        - String community
+        - String trapOid
+        - String enterpriseOid
+        - Integer genericTrap
+        - Integer specificTrap
+        - Long timestamp
+        - Long uptime
+        - String agentAddress
+        - List<TrapVariable> variables
+        - TrapSeverity severity
+        - String description
+        - Boolean processed
+        - LocalDateTime processedAt
+        - Long alertId
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+    
+    class TrapVariable {
+        - Long id
+        - String oid
+        - String type
+        - String value
+        - TrapEvent trapEvent
+    }
+    
+    enum TrapSeverity {
+        CRITICAL
+        MAJOR
+        MINOR
+        WARNING
+        INFO
+        CLEAR
+    }
+}
+
+' MIB Management Package
+package "MIB Management" {
+    class MibFile {
+        - Long id
+        - String name
+        - String description
+        - String version
+        - String filePath
+        - String content
+        - Boolean active
+        - List<MibObject> objects
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+    
+    class MibObject {
+        - Long id
+        - String oid
+        - String name
+        - String description
+        - String syntax
+        - String access
+        - String status
+        - MibFile mibFile
+        - LocalDateTime createdAt
+        - LocalDateTime updatedAt
+    }
+}
+
+' Service Layer Package
+package "Service Layer" {
+    interface DeviceService
+    interface AlertService
+    interface TrapService
+    interface SnmpPollingService
+    interface DiscoveryService
+    interface UserService
+}
+
+' Controller Layer Package
+package "Controller Layer" {
+    class DeviceController
+    class AlertController
+    class TrapController
+    class DiscoveryController
+    class LoginController
+    class RegistrationController
+    class MibController
+    class SnmpPollingController
+    class DeviceInterfaceController
+    class SystemUnitController
+    class IpProfileController
+    class IcmpProfileController
+    class UdpProfileController
+}
+
+' Security Package
+package "Security" {
+    class JwtTokenManager
+    class JwtAuthenticationFilter
+    class SecurityConfiguration
+    class UserDetailsServiceImpl
+}
+
+' Relationships
+User ||--o{ Device : owns
+Device ||--|| DeviceConfig : has
+Device ||--o{ DeviceInterface : contains
+Device ||--o{ SystemUnit : contains
+Device ||--o{ IpProfile : has
+Device ||--o{ IcmpProfile : has
+Device ||--o{ UdpProfile : has
+User ||--o{ Alert : receives
+Alert }o--|| Device : references
+TrapEvent ||--o{ TrapVariable : contains
+MibFile ||--o{ MibObject : contains
+
+' Service dependencies
+DeviceController --> DeviceService
+AlertController --> AlertService
+TrapController --> TrapService
+DiscoveryController --> DiscoveryService
+LoginController --> UserService
+RegistrationController --> UserService
+
+' Entity relationships
+Device --> DeviceStatus
+Device --> DeviceType
+DeviceConfig --> SnmpVersion
+DeviceInterface --> InterfaceType
+DeviceInterface --> InterfaceStatus
+Alert --> AlertType
+Alert --> AlertSeverity
+Alert --> AlertStatus
+Alert --> SourceType
+TrapEvent --> TrapSeverity
+
+@enduml

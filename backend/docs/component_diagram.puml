@@ -1,0 +1,179 @@
+@startuml Network Management System - Component Diagram
+
+!theme aws-orange
+
+title Network Management System - Component Architecture
+
+' Define component packages
+package "Web Layer" {
+    [REST Controllers] as controllers
+    [Security Filters] as security
+    [Exception Handlers] as exceptions
+}
+
+package "Service Layer" {
+    package "Core Services" {
+        [User Management] as userMgmt
+        [Device Management] as deviceMgmt
+        [Alert Management] as alertMgmt
+        [Configuration Management] as configMgmt
+    }
+    
+    package "SNMP Services" {
+        [SNMP Client] as snmpClient
+        [Polling Engine] as pollingEngine
+        [Trap Receiver] as trapReceiver
+        [MIB Browser] as mibBrowser
+    }
+    
+    package "Discovery Services" {
+        [Network Discovery] as networkDiscovery
+        [SNMP Discovery] as snmpDiscovery
+        [Device Auto-Config] as autoConfig
+    }
+    
+    package "Monitoring Services" {
+        [Performance Monitor] as perfMonitor
+        [Health Monitor] as healthMonitor
+        [Threshold Monitor] as thresholdMonitor
+        [Notification Engine] as notifications
+    }
+}
+
+package "Data Access Layer" {
+    [JPA Repositories] as repositories
+    [Entity Mappers] as mappers
+    [Data Validation] as validation
+}
+
+package "Infrastructure Layer" {
+    [Database Connection] as database
+    [Security Config] as securityConfig
+    [Scheduling] as scheduling
+    [Event System] as events
+    [File Management] as fileManager
+}
+
+package "External Interfaces" {
+    [SNMP Protocol] as snmpProtocol
+    [Email Service] as emailService
+    [File System] as fileSystem
+    [Network Interface] as networkInterface
+}
+
+' Define interfaces
+interface "Device API" as deviceAPI
+interface "Alert API" as alertAPI
+interface "Discovery API" as discoveryAPI
+interface "Trap API" as trapAPI
+interface "MIB API" as mibAPI
+interface "Auth API" as authAPI
+
+interface "SNMP Interface" as snmpInterface
+interface "Database Interface" as dbInterface
+interface "Notification Interface" as notificationInterface
+interface "File Interface" as fileInterface
+
+' Component relationships
+controllers --> deviceAPI
+controllers --> alertAPI
+controllers --> discoveryAPI
+controllers --> trapAPI
+controllers --> mibAPI
+controllers --> authAPI
+
+deviceAPI --> deviceMgmt
+alertAPI --> alertMgmt
+discoveryAPI --> networkDiscovery
+discoveryAPI --> snmpDiscovery
+trapAPI --> trapReceiver
+mibAPI --> mibBrowser
+authAPI --> userMgmt
+
+deviceMgmt --> repositories
+alertMgmt --> repositories
+userMgmt --> repositories
+configMgmt --> repositories
+
+pollingEngine --> snmpInterface
+trapReceiver --> snmpInterface
+mibBrowser --> snmpInterface
+snmpClient --> snmpInterface
+
+snmpInterface --> snmpProtocol
+
+networkDiscovery --> networkInterface
+snmpDiscovery --> snmpInterface
+autoConfig --> deviceMgmt
+
+perfMonitor --> pollingEngine
+healthMonitor --> pollingEngine
+thresholdMonitor --> alertMgmt
+notifications --> notificationInterface
+
+notificationInterface --> emailService
+
+repositories --> dbInterface
+dbInterface --> database
+
+fileManager --> fileInterface
+fileInterface --> fileSystem
+
+security --> securityConfig
+scheduling --> pollingEngine
+events --> alertMgmt
+
+' Cross-cutting concerns
+note as crossCutting
+    Cross-cutting Concerns:
+    - Logging (SLF4J + Logback)
+    - Metrics (Micrometer)
+    - Caching (Spring Cache)
+    - Transaction Management
+    - Error Handling
+    - Validation
+end note
+
+' Component descriptions
+note right of pollingEngine
+    Scheduled SNMP polling
+    - Device status checks
+    - Interface statistics
+    - System information
+    - Performance metrics
+end note
+
+note left of trapReceiver
+    SNMP Trap processing
+    - UDP port 162 listener
+    - Trap parsing
+    - Event correlation
+    - Alert generation
+end note
+
+note bottom of networkDiscovery
+    Network discovery methods
+    - IP range scanning
+    - SNMP walking
+    - Device identification
+    - Auto-configuration
+end note
+
+note top of notifications
+    Multi-channel notifications
+    - Email alerts
+    - System events
+    - Real-time updates
+    - Alert escalation
+end note
+
+' Configuration notes
+note as config
+    Configuration Sources:
+    - application.yml
+    - Environment variables
+    - Database settings
+    - Runtime parameters
+end note
+
+@enduml

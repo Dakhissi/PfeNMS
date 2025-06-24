@@ -1,0 +1,216 @@
+@startuml Network Management System - Use Case Diagram
+
+!theme aws-orange
+
+title Network Management System - Use Case Diagrams
+
+' Actors
+actor "System Administrator" as admin
+actor "Network Operator" as operator
+actor "Network Device" as device
+actor "SNMP Agent" as snmp
+actor "Monitoring System" as monitor
+
+' System boundary
+rectangle "Network Management System" {
+    
+    ' User Management Use Cases
+    package "User Management" {
+        usecase "Register User" as UC1
+        usecase "Login" as UC2
+        usecase "Manage User Profile" as UC3
+        usecase "Logout" as UC4
+    }
+    
+    ' Device Management Use Cases
+    package "Device Management" {
+        usecase "Add Device" as UC5
+        usecase "Configure Device" as UC6
+        usecase "Update Device Info" as UC7
+        usecase "Delete Device" as UC8
+        usecase "View Device List" as UC9
+        usecase "View Device Details" as UC10
+        usecase "Enable/Disable Monitoring" as UC11
+    }
+    
+    ' Network Discovery Use Cases
+    package "Network Discovery" {
+        usecase "Discover Devices" as UC12
+        usecase "SNMP Discovery" as UC13
+        usecase "Network Scan" as UC14
+        usecase "Auto-Add Discovered Devices" as UC15
+    }
+    
+    ' SNMP Monitoring Use Cases
+    package "SNMP Monitoring" {
+        usecase "Poll Device Status" as UC16
+        usecase "Poll Interface Statistics" as UC17
+        usecase "Poll System Information" as UC18
+        usecase "Collect Performance Data" as UC19
+        usecase "Update Device Uptime" as UC20
+    }
+    
+    ' Profile Management Use Cases
+    package "Profile Management" {
+        usecase "Create IP Profile" as UC21
+        usecase "Create ICMP Profile" as UC22
+        usecase "Create UDP Profile" as UC23
+        usecase "Configure Profile Settings" as UC24
+        usecase "Enable/Disable Profile" as UC25
+        usecase "Delete Profile" as UC26
+    }
+    
+    ' Alert Management Use Cases
+    package "Alert Management" {
+        usecase "Generate Alert" as UC27
+        usecase "View Alerts" as UC28
+        usecase "Acknowledge Alert" as UC29
+        usecase "Resolve Alert" as UC30
+        usecase "Filter Alerts" as UC31
+        usecase "Configure Alert Rules" as UC32
+    }
+    
+    ' SNMP Trap Management Use Cases
+    package "SNMP Trap Management" {
+        usecase "Receive SNMP Traps" as UC33
+        usecase "Process Trap Events" as UC34
+        usecase "Parse Trap Variables" as UC35
+        usecase "Create Alert from Trap" as UC36
+        usecase "View Trap History" as UC37
+    }
+    
+    ' MIB Management Use Cases
+    package "MIB Management" {
+        usecase "Upload MIB File" as UC38
+        usecase "Browse MIB Objects" as UC39
+        usecase "Search MIB Objects" as UC40
+        usecase "Query MIB Object" as UC41
+        usecase "Manage MIB Repository" as UC42
+    }
+    
+    ' Reporting Use Cases
+    package "Reporting & Analytics" {
+        usecase "View Device Statistics" as UC43
+        usecase "Generate Reports" as UC44
+        usecase "Export Data" as UC45
+        usecase "View Dashboard" as UC46
+    }
+    
+    ' System Configuration Use Cases
+    package "System Configuration" {
+        usecase "Configure SNMP Settings" as UC47
+        usecase "Configure Polling Intervals" as UC48
+        usecase "Configure Trap Receiver" as UC49
+        usecase "Backup Configuration" as UC50
+        usecase "Restore Configuration" as UC51
+    }
+}
+
+' User relationships
+admin --> UC1
+admin --> UC2
+admin --> UC3
+admin --> UC4
+admin --> UC5
+admin --> UC6
+admin --> UC7
+admin --> UC8
+admin --> UC9
+admin --> UC10
+admin --> UC11
+admin --> UC12
+admin --> UC13
+admin --> UC14
+admin --> UC15
+admin --> UC21
+admin --> UC22
+admin --> UC23
+admin --> UC24
+admin --> UC25
+admin --> UC26
+admin --> UC27
+admin --> UC28
+admin --> UC29
+admin --> UC30
+admin --> UC31
+admin --> UC32
+admin --> UC38
+admin --> UC39
+admin --> UC40
+admin --> UC41
+admin --> UC42
+admin --> UC43
+admin --> UC44
+admin --> UC45
+admin --> UC46
+admin --> UC47
+admin --> UC48
+admin --> UC49
+admin --> UC50
+admin --> UC51
+
+operator --> UC2
+operator --> UC3
+operator --> UC4
+operator --> UC9
+operator --> UC10
+operator --> UC11
+operator --> UC28
+operator --> UC29
+operator --> UC30
+operator --> UC31
+operator --> UC37
+operator --> UC39
+operator --> UC40
+operator --> UC41
+operator --> UC43
+operator --> UC46
+
+' System actor relationships
+device --> UC33 : sends traps
+snmp --> UC16 : responds to polls
+snmp --> UC17 : provides interface data
+snmp --> UC18 : provides system info
+snmp --> UC19 : provides performance data
+monitor --> UC16 : initiates polling
+monitor --> UC17 : initiates polling
+monitor --> UC18 : initiates polling
+monitor --> UC19 : initiates polling
+monitor --> UC27 : triggers alerts
+monitor --> UC34 : processes traps
+
+' Include relationships
+UC13 .> UC15 : <<include>>
+UC14 .> UC15 : <<include>>
+UC16 .> UC27 : <<include>>
+UC17 .> UC27 : <<include>>
+UC18 .> UC20 : <<include>>
+UC33 .> UC34 : <<include>>
+UC34 .> UC35 : <<include>>
+UC34 .> UC36 : <<include>>
+
+' Extend relationships
+UC29 .> UC30 : <<extend>>
+UC32 .> UC27 : <<extend>>
+UC44 .> UC45 : <<extend>>
+
+' Notes
+note right of UC33
+  SNMP traps are received
+  asynchronously from devices
+  when events occur
+end note
+
+note bottom of UC16
+  Polling occurs at regular
+  intervals (default: 30 seconds)
+  for all enabled devices
+end note
+
+note left of UC27
+  Alerts are generated based on
+  device status changes, threshold
+  violations, or trap events
+end note
+
+@enduml

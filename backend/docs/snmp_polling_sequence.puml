@@ -1,0 +1,148 @@
+@startuml SNMP Polling Sequence Diagram
+
+!theme aws-orange
+
+title SNMP Device Polling and Monitoring Sequence
+
+actor "Scheduler" as scheduler
+participant "SnmpPollingService" as polling
+participant "DeviceRepository" as deviceRepo
+participant "SnmpClientService" as snmpClient
+participant "InterfacePollService" as interfaceService
+participant "SystemInfoPollService" as systemService
+participant "DeviceMonitoringService" as monitoring
+participant "AlertService" as alertService
+participant "DuplicatePreventionService" as dupPrevention
+participant "Network Device" as device
+database "Database" as db
+
+== Scheduled Polling Cycle ==
+
+scheduler -> polling : @Scheduled(fixedRate = 30000)
+activate polling
+
+polling -> deviceRepo : findByMonitoringEnabledTrue()
+activate deviceRepo
+deviceRepo -> db : SELECT * FROM devices WHERE monitoring_enabled = true
+deviceRepo --> polling : List<Device>
+deactivate deviceRepo
+
+loop For each monitored device
+    polling -> snmpClient : isDeviceReachable(deviceConfig)
+    activate snmpClient
+    
+    snmpClient -> device : SNMP GET (sysUpTime)
+    activate device
+    device --> snmpClient : Response/Timeout
+    deactivate device
+    
+    snmpClient --> polling : boolean reachable
+    deactivate snmpClient
+    
+    alt Device is reachable
+        
+        == System Information Polling ==
+        polling -> systemService : pollSystemInfo(device)
+        activate systemService
+        
+        systemService -> snmpClient : getSystemInfo(deviceConfig)
+        activate snmpClient
+        snmpClient -> device : SNMP GET (sysDescr, sysObjectID, sysUpTime, etc.)
+        device --> snmpClient : System MIB responses
+        snmpClient --> systemService : SystemInfo data
+        deactivate snmpClient
+        
+        systemService -> deviceRepo : updateSystemInfo(device, systemInfo)
+        systemService --> polling : success
+        deactivate systemService
+        
+        == Interface Polling ==
+        polling -> interfaceService : pollDeviceInterfaces(device)
+        activate interfaceService
+        
+        interfaceService -> snmpClient : getInterfaceTable(deviceConfig)
+        activate snmpClient
+        snmpClient -> device : SNMP WALK (ifTable)
+        device --> snmpClient : Interface MIB responses
+        snmpClient --> interfaceService : Interface data
+        deactivate snmpClient
+        
+        interfaceService -> dupPrevention : shouldUpdateInterface(interface)
+        activate dupPrevention
+        dupPrevention --> interfaceService : boolean update
+        deactivate dupPrevention
+        
+        opt Interface data changed
+            interfaceService -> db : UPDATE device_interfaces
+        end
+        
+        interfaceService --> polling : Interface stats
+        deactivate interfaceService
+        
+        == Device Status Update ==
+        polling -> monitoring : updateDeviceStatus(device, ACTIVE)
+        activate monitoring
+        
+        monitoring -> deviceRepo : updateLastMonitored(device)
+        monitoring -> deviceRepo : setStatus(device, ACTIVE)
+        
+        opt Status changed from previous
+            monitoring -> alertService : createDeviceUpAlert(device)
+            activate alertService
+            alertService -> db : INSERT INTO alerts
+            alertService --> monitoring : Alert created
+            deactivate alertService
+        end
+        
+        monitoring --> polling : Status updated
+        deactivate monitoring
+        
+    else Device is unreachable
+        
+        == Handle Device Down ==
+        polling -> monitoring : updateDeviceStatus(device, INACTIVE)
+        activate monitoring
+        
+        monitoring -> deviceRepo : setStatus(device, INACTIVE)
+        
+        opt Device was previously active
+            monitoring -> alertService : createDeviceDownAlert(device)
+            activate alertService
+            alertService -> db : INSERT INTO alerts
+            alertService --> monitoring : Alert created
+            deactivate alertService
+        end
+        
+        monitoring --> polling : Status updated
+        deactivated monitoring
+        
+    end
+    
+end
+
+polling --> scheduler : Polling cycle complete
+deactivate polling
+
+== Trap Event Processing (Asynchronous) ==
+
+device -> polling : SNMP Trap (UDP 162)
+activate polling
+
+polling -> polling : parseTrapEvent(trapPDU)
+polling -> db : INSERT INTO trap_events
+
+polling -> alertService : processTrapEvent(trapEvent)
+activate alertService
+
+alertService -> deviceRepo : findByTargetIp(trapEvent.sourceIp)
+opt Device found
+    alertService -> alertService : createTrapAlert(device, trapEvent)
+    alertService -> db : INSERT INTO alerts
+end
+
+alertService --> polling : Trap processed
+deactivate alertService
+
+deactivate polling
+
+@enduml

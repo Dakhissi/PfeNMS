@@ -150,4 +150,36 @@ public class AlertController {
         );
         return ResponseEntity.ok(statistics);
     }
+
+    @GetMapping("/device/{deviceId}")
+    @Operation(summary = "Get alerts by device", description = "Get all alerts for a specific device")
+    @ApiResponse(responseCode = "200", description = "Alerts retrieved successfully")
+    public ResponseEntity<List<AlertDto>> getAlertsByDevice(
+            @Parameter(description = "Device ID") @PathVariable Long deviceId) {
+        User user = SecurityUtils.getCurrentUser();
+        List<AlertDto> alerts = alertService.getAlertsByDevice(deviceId, user);
+        return ResponseEntity.ok(alerts);
+    }
+
+    @GetMapping("/interface/{interfaceId}")
+    @Operation(summary = "Get alerts by interface", description = "Get all alerts for a specific device interface")
+    @ApiResponse(responseCode = "200", description = "Alerts retrieved successfully")
+    public ResponseEntity<List<AlertDto>> getAlertsByInterface(
+            @Parameter(description = "Device Interface ID") @PathVariable Long interfaceId) {
+        User user = SecurityUtils.getCurrentUser();
+        List<AlertDto> alerts = alertService.getAlertsByInterface(interfaceId, user);
+        return ResponseEntity.ok(alerts);
+    }
+
+    @GetMapping("/system-unit/{systemUnitId}")
+    @Operation(summary = "Get alerts by system unit", description = "Get all alerts for a specific system unit")
+    @ApiResponse(responseCode = "200", description = "Alerts retrieved successfully")
+    public ResponseEntity<List<AlertDto>> getAlertsBySystemUnit(
+            @Parameter(description = "System Unit ID") @PathVariable Long systemUnitId) {
+        User user = SecurityUtils.getCurrentUser();
+        List<AlertDto> alerts = alertService.getAlertsBySystemUnit(systemUnitId, user);
+        return ResponseEntity.ok(alerts);
+    }
+
+
 }

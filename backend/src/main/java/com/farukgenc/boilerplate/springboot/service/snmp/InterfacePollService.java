@@ -149,7 +149,11 @@ public class InterfacePollService {
         // Interface description
         Variable ifDescr = data.get(IF_DESCR_OID + suffix);
         if (ifDescr != null) {
-            deviceInterface.setIfDescr(truncateString(ifDescr.toString(), 1000));
+            String descrRaw = ifDescr.toString();
+            String parsedDescr = snmpDataParser.isHexFormat(descrRaw)
+                    ? snmpDataParser.parseHexToString(descrRaw)
+                    : descrRaw;
+            deviceInterface.setIfDescr(truncateString(parsedDescr, 1000));
         }
         
         // Interface type

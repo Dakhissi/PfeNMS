@@ -6,6 +6,7 @@ import com.farukgenc.boilerplate.springboot.model.Alert;
 import com.farukgenc.boilerplate.springboot.model.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -48,4 +49,11 @@ public interface AlertService {
     void checkInterfaceStatus(Long interfaceId, User user);
 
     void checkSystemStatus(Long systemUnitId, User user);
+
+
+    List<AlertDto> getAlertsByDevice(Long deviceId, User user);
+
+    List<AlertDto> getAlertsBySystemUnit(Long systemUnitId, User user);
+
+    List<AlertDto> getAlertsByInterface(Long interfaceId, User user);
 }

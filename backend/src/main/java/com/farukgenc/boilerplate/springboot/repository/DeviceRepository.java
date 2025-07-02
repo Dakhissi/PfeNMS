@@ -35,4 +35,10 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
 
     @Query("SELECT d FROM Device d WHERE d.deviceConfig.targetIp = :targetIp")
     Optional<Device> findByTargetIp(@Param("targetIp") String targetIp);
+
+    @Query("SELECT d FROM Device d LEFT JOIN FETCH d.deviceConfig LEFT JOIN FETCH d.user")
+    List<Device> findAllWithConfigAndUser();
+
+    @Query("SELECT d FROM Device d LEFT JOIN FETCH d.deviceConfig LEFT JOIN FETCH d.user WHERE d.user = :user")
+    List<Device> findByUserWithConfigAndUser(@Param("user") User user);
 }

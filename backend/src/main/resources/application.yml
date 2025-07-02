@@ -13,7 +13,7 @@ spring:
       pool-name: SpringBootBoilerplateHikariPool
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     open-in-view: false
   jta:
     enabled: false
@@ -83,9 +83,9 @@ app:
 ## FIXME : Customize JWT token and Swagger information for your application
 
 jwt:
-  secretKey: secret
+  secretKey: Managment
   issuer: www.farukgenc.com
-  expirationMinute: 10
+  expirationMinute: 480
 
 swagger:
   contact-name: Abdessalam Dakhissi

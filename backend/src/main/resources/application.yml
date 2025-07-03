@@ -79,6 +79,8 @@ app:
     cleanup-enabled: true
     cleanup-interval-hours: 24
     cleanup-retention-days: 30
+  mib:
+    upload-dir: mib-files
 
 ## FIXME : Customize JWT token and Swagger information for your application
 

@@ -57,55 +57,49 @@ public class MibServiceImpl implements MibService {
 
     @Override
     public MibFileDto uploadMibFile(MultipartFile file, User user) {
-        log.info("Uploading MIB file: {} for user: {}", file.getOriginalFilename(), user.getUsername());
-
         try {
-            // Validate file
             validateMibFile(file);
 
-            // Save file to disk
-            String fileName = saveFileToDisk(file);
-            String checksum = calculateChecksum(file.getBytes());
+            /* 1️⃣ copy once, then forget MultipartFile */
+            Path stored = saveFileToDisk(file);        // may throw IOException
+            byte[] content = Files.readAllBytes(stored); // may throw IOException
+            String checksum = calculateChecksum(content);
 
-            // Check for duplicates
-            Optional<MibFile> existingFile = mibFileRepository.findByFileHashAndUser(checksum, user);
-            if (existingFile.isPresent()) {
-                throw new IllegalArgumentException("MIB file already exists: " + existingFile.get().getFilename());
+            // duplicate check …
+            if (mibFileRepository.findByFileHashAndUser(checksum, user).isPresent()) {
+                throw new IllegalArgumentException("MIB already uploaded");
             }
 
-            // Create MIB file entity with LOADING status
-            MibFile mibFile = MibFile.builder()
-                    .name(file.getOriginalFilename())
-                    .filename(file.getOriginalFilename())
-                    .filePath(fileName)
-                    .fileSize(file.getSize())
-                    .fileHash(checksum)
-                    .status(MibFile.MibFileStatus.LOADING)
-                    .user(user)
-                    .build();
+            /* 2️⃣ persist DB record */
+            MibFile mibFile = mibFileRepository.save(
+                    MibFile.builder()
+                            .name(file.getOriginalFilename())
+                            .filename(stored.getFileName().toString())
+                            .filePath(stored.toString())
+                            .fileSize(file.getSize())       // or (long) content.length
+                            .fileHash(checksum)
+                            .status(MibFile.MibFileStatus.LOADING)
+                            .user(user)
+                            .build());
 
-            mibFile = mibFileRepository.save(mibFile);
-
-            // Parse MIB file with Mibble
             try {
-                parseMibFileWithMibble(mibFile);
+                parseMibFileWithMibble(mibFile);       // works on the copy
                 mibFile.setStatus(MibFile.MibFileStatus.LOADED);
-            } catch (Exception e) {
+            } catch (Exception ex) {
                 mibFile.setStatus(MibFile.MibFileStatus.ERROR);
-                mibFile.setLoadErrorMessage(e.getMessage());
-                log.error("Error parsing MIB file: {}", mibFile.getFilename(), e);
+                mibFile.setLoadErrorMessage(ex.getMessage());
+                throw ex;
             } finally {
                 mibFileRepository.save(mibFile);
             }
-
-            log.info("MIB file uploaded and parsed successfully: {}", mibFile.getId());
             return mibFileMapper.toDto(mibFile);
 
-        } catch (Exception e) {
-            log.error("Error uploading MIB file", e);
-            throw new RuntimeException("Failed to upload MIB file: " + e.getMessage(), e);
+        } catch (IOException | MibLoaderException io) {                     // <-- catches both calls
+            throw new RuntimeException("Failed to store MIB file", io);
         }
     }
+
+
 
     @Override
     public List<MibFileDto> getMibFilesByUser(User user) {
@@ -337,7 +331,9 @@ public class MibServiceImpl implements MibService {
         loadStandardMibs();
 
         // Load the uploaded MIB file
-        File file = new File(mibUploadDir, mibFile.getFilePath());
+        String baseDir = System.getProperty("user.dir");
+        Path uploadPath = Paths.get(baseDir, mibUploadDir);
+        File file = uploadPath.resolve(mibFile.getFilePath()).toFile();
         Mib mib = mibLoader.load(file);
 
         // Update MIB file metadata
@@ -666,15 +662,18 @@ public class MibServiceImpl implements MibService {
         }
     }
 
-    private String saveFileToDisk(MultipartFile file) throws IOException {
-        Path uploadPath = Paths.get(mibUploadDir);
-        Files.createDirectories(uploadPath);
+    private Path saveFileToDisk(MultipartFile file) throws IOException {
+        Path uploadDir = Paths.get(System.getProperty("user.dir"), mibUploadDir);
+        Files.createDirectories(uploadDir);
 
-        String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-        Path filePath = uploadPath.resolve(fileName);
-        file.transferTo(filePath.toFile());
+        String safeName = System.currentTimeMillis() + "_" +
+                FilenameUtils.getName(file.getOriginalFilename());
+        Path target = uploadDir.resolve(safeName);
 
-        return fileName;
+        try (InputStream in = file.getInputStream()) {
+            Files.copy(in, target);   // keeps Tomcat temp file alive once
+        }
+        return target;
     }
 
     private String calculateChecksum(byte[] content) {

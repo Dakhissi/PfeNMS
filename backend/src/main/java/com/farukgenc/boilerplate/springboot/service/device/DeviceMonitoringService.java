@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.net.InetAddress;
 import java.time.LocalDateTime;
@@ -20,6 +21,7 @@ import java.util.List;
 
 /**
  * Service for monitoring device health and triggering alerts
+ * Secondary service to handle device monitoring
  */
 @Slf4j
 @Service
@@ -33,28 +35,31 @@ public class DeviceMonitoringService {
 
     /**
      * Scheduled monitoring of all devices every 30 seconds
+     * DISABLED - Using SnmpPollingService instead to avoid conflicts
      */
-    @Scheduled(fixedRate = 30000) // 30 seconds
+    // @Scheduled(fixedRate = 30000) // 30 seconds
+    // @Transactional
     public void monitorAllDevices() {
-        log.debug("Starting scheduled device monitoring");
-        
-        List<Device> allDevices = deviceRepository.findAll();
-        
-        for (Device device : allDevices) {
-            try {
-                monitorDevice(device);
-            } catch (Exception e) {
-                log.error("Error monitoring device {}: {}", device.getName(), e.getMessage());
-            }
-        }
-        
-        log.debug("Completed scheduled monitoring of {} devices", allDevices.size());
+        log.debug("Device monitoring is handled by SnmpPollingService");
     }
 
     /**
      * Monitor a specific device
      */
+    @Transactional
     public void monitorDevice(Device device) {
+        // CRITICAL: Check if monitoring is enabled for this device FIRST
+        if (device.getMonitoringEnabled() == null || !device.getMonitoringEnabled()) {
+            log.debug("Monitoring is disabled for device: {} - skipping monitoring", device.getName());
+            return;
+        }
+
+        // Ensure device has config and user loaded
+        if (device.getDeviceConfig() == null) {
+            log.warn("Device {} has no configuration, skipping monitoring", device.getName());
+            return;
+        }
+
         log.debug("Monitoring device: {} ({})", device.getName(), device.getDeviceConfig().getTargetIp());
         
         // Ping test
@@ -62,20 +67,28 @@ public class DeviceMonitoringService {
         
         if (!pingResult.isReachable()) {
             // Device is down
+            device.setStatus(Device.DeviceStatus.INACTIVE);
             createDeviceDownAlert(device);
-            alertNotificationService.sendDeviceStatusUpdate(device.getId(), "DOWN", device.getUser());
+            if (device.getUser() != null) {
+                alertNotificationService.sendDeviceStatusUpdate(device.getId(), "DOWN", device.getUser());
+            }
         } else {
-            // Device is up, check response time
+            // Device is up
+            device.setStatus(Device.DeviceStatus.ACTIVE);
+
+            // Check response time
             if (pingResult.getResponseTime() > 1000) { // Response time > 1 second
                 createSlowResponseAlert(device, pingResult.getResponseTime());
             }
             
             // If SNMP is enabled, perform SNMP health checks
-            if (device.getDeviceConfig() != null && device.getDeviceConfig().getEnabled()) {
+            if (device.getDeviceConfig().getEnabled() != null && device.getDeviceConfig().getEnabled()) {
                 performSnmpHealthCheck(device);
             }
             
-            alertNotificationService.sendDeviceStatusUpdate(device.getId(), "UP", device.getUser());
+            if (device.getUser() != null) {
+                alertNotificationService.sendDeviceStatusUpdate(device.getId(), "UP", device.getUser());
+            }
         }
         
         // Update last monitoring time

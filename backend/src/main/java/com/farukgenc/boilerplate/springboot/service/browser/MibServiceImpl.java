@@ -10,6 +10,8 @@ import com.farukgenc.boilerplate.springboot.repository.MibFileRepository;
 import com.farukgenc.boilerplate.springboot.repository.MibObjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.percederberg.mibble.*;
+import net.percederberg.mibble.value.ObjectIdentifierValue;
 import org.apache.commons.io.FilenameUtils;
 import org.snmp4j.*;
 import org.snmp4j.event.ResponseEvent;
@@ -33,8 +35,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Simplified MIB Service implementation without Mibble dependency
- * Provides basic MIB functionality and SNMP operations
+ * Complete MIB Service implementation with Mibble parser
+ * Provides full MIB functionality with hierarchical structure and SNMP operations
  */
 @Slf4j
 @Service
@@ -50,66 +52,54 @@ public class MibServiceImpl implements MibService {
     @Value("${app.mib.upload-dir:mib-files}")
     private String mibUploadDir;
 
-    // Common SNMP OIDs for basic functionality
-    private static final Map<String, String> COMMON_OIDS = new HashMap<>();
-    
-    static {
-        COMMON_OIDS.put("1.3.6.1.2.1.1.1.0", "sysDescr");
-        COMMON_OIDS.put("1.3.6.1.2.1.1.2.0", "sysObjectID");
-        COMMON_OIDS.put("1.3.6.1.2.1.1.3.0", "sysUpTime");
-        COMMON_OIDS.put("1.3.6.1.2.1.1.4.0", "sysContact");
-        COMMON_OIDS.put("1.3.6.1.2.1.1.5.0", "sysName");
-        COMMON_OIDS.put("1.3.6.1.2.1.1.6.0", "sysLocation");
-        COMMON_OIDS.put("1.3.6.1.2.1.1.7.0", "sysServices");
-        COMMON_OIDS.put("1.3.6.1.2.1.2.1.0", "ifNumber");
-        COMMON_OIDS.put("1.3.6.1.2.1.2.2.1.1", "ifIndex");
-        COMMON_OIDS.put("1.3.6.1.2.1.2.2.1.2", "ifDescr");
-        COMMON_OIDS.put("1.3.6.1.2.1.2.2.1.3", "ifType");
-        COMMON_OIDS.put("1.3.6.1.2.1.2.2.1.5", "ifSpeed");
-        COMMON_OIDS.put("1.3.6.1.2.1.2.2.1.6", "ifPhysAddress");
-        COMMON_OIDS.put("1.3.6.1.2.1.2.2.1.7", "ifAdminStatus");
-        COMMON_OIDS.put("1.3.6.1.2.1.2.2.1.8", "ifOperStatus");
-    }
+    // Mibble loader instance for parsing MIB files
+    private final MibLoader mibLoader = new MibLoader();
 
     @Override
     public MibFileDto uploadMibFile(MultipartFile file, User user) {
-        log.info("Uploading MIB file: {} for user: {}", file.getOriginalFilename(), user.getUsername());
-
         try {
-            // Validate file
             validateMibFile(file);
 
-            // Save file to disk
-            String fileName = saveFileToDisk(file);
-            String checksum = calculateChecksum(file.getBytes());            // Check for duplicates
-            Optional<MibFile> existingFile = mibFileRepository.findByFileHashAndUser(checksum, user);
-            if (existingFile.isPresent()) {
-                throw new IllegalArgumentException("MIB file already exists: " + existingFile.get().getFilename());
+            /* 1️⃣ copy once, then forget MultipartFile */
+            Path stored = saveFileToDisk(file);        // may throw IOException
+            byte[] content = Files.readAllBytes(stored); // may throw IOException
+            String checksum = calculateChecksum(content);
+
+            // duplicate check …
+            if (mibFileRepository.findByFileHashAndUser(checksum, user).isPresent()) {
+                throw new IllegalArgumentException("MIB already uploaded");
             }
 
-            // Create MIB file entity
-            MibFile mibFile = MibFile.builder()
-                    .name(file.getOriginalFilename())
-                    .filename(file.getOriginalFilename())
-                    .filePath(fileName)
-                    .fileSize(file.getSize())
-                    .fileHash(checksum)
-                    .user(user)
-                    .build();
+            /* 2️⃣ persist DB record */
+            MibFile mibFile = mibFileRepository.save(
+                    MibFile.builder()
+                            .name(file.getOriginalFilename())
+                            .filename(stored.getFileName().toString())
+                            .filePath(stored.toString())
+                            .fileSize(file.getSize())       // or (long) content.length
+                            .fileHash(checksum)
+                            .status(MibFile.MibFileStatus.LOADING)
+                            .user(user)
+                            .build());
 
-            mibFile = mibFileRepository.save(mibFile);
-
-            // Parse and create basic MIB objects
-            parseBasicMibFile(mibFile);
-
-            log.info("MIB file uploaded and parsed successfully: {}", mibFile.getId());
+            try {
+                parseMibFileWithMibble(mibFile);       // works on the copy
+                mibFile.setStatus(MibFile.MibFileStatus.LOADED);
+            } catch (Exception ex) {
+                mibFile.setStatus(MibFile.MibFileStatus.ERROR);
+                mibFile.setLoadErrorMessage(ex.getMessage());
+                throw ex;
+            } finally {
+                mibFileRepository.save(mibFile);
+            }
             return mibFileMapper.toDto(mibFile);
 
-        } catch (Exception e) {
-            log.error("Error uploading MIB file", e);
-            throw new RuntimeException("Failed to upload MIB file: " + e.getMessage(), e);
+        } catch (IOException | MibLoaderException io) {                     // <-- catches both calls
+            throw new RuntimeException("Failed to store MIB file", io);
         }
     }
+
+
 
     @Override
     public List<MibFileDto> getMibFilesByUser(User user) {
@@ -190,30 +180,32 @@ public class MibServiceImpl implements MibService {
 
     @Override
     public List<MibObjectDto> getMibTree(User user) {
-        log.debug("Getting MIB tree for user: {}", user.getUsername());
+        log.debug("Getting hierarchical MIB tree for user: {}", user.getUsername());
 
-        // Create a basic MIB tree with common OIDs
-        List<MibObject> rootObjects = createBasicMibTree(user);
+        // Get root objects (objects without parent)
+        List<MibObject> rootObjects = mibObjectRepository.findRootsByUserId(user.getId());
+        
+        // If no user-specific objects, create standard MIB-2 tree
+        if (rootObjects.isEmpty()) {
+            rootObjects = createStandardMibTree(user);
+        }
         
         return rootObjects.stream()
-                .map(mibObjectMapper::toDto)
+                .map(this::convertToHierarchicalDto)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public MibBrowserResponse performSnmpGet(MibBrowserRequest request, User user) {        log.debug("Performing SNMP GET for OID: {} on target: {}", request.getOid(), request.getTargetIp());
+    public MibBrowserResponse performSnmpGet(MibBrowserRequest request, User user) {
+        log.debug("Performing SNMP GET for OID: {} on target: {}", request.getOid(), request.getTargetIp());
 
+        long startTime = System.currentTimeMillis();
         try {
             DefaultUdpTransportMapping transport = new DefaultUdpTransportMapping();
             Snmp snmp = new Snmp(transport);
             transport.listen();
 
-            CommunityTarget<Address> target = new CommunityTarget<>();
-            target.setCommunity(new OctetString(request.getCommunity()));
-            target.setAddress(GenericAddress.parse("udp:" + request.getTargetIp() + "/161"));
-            target.setRetries(request.getRetries());
-            target.setTimeout(request.getTimeout());
-            target.setVersion(SnmpConstants.version2c);
+            CommunityTarget<Address> target = createSnmpTarget(request);
 
             PDU pdu = new PDU();
             pdu.add(new VariableBinding(new OID(request.getOid())));
@@ -222,21 +214,31 @@ public class MibServiceImpl implements MibService {
             ResponseEvent<Address> event = snmp.send(pdu, target);
             snmp.close();
 
+            long responseTime = System.currentTimeMillis() - startTime;
+
             if (event != null && event.getResponse() != null) {
                 PDU response = event.getResponse();
                 if (response.getErrorStatus() == 0) {
                     VariableBinding vb = response.get(0);
+                    
+                    // Try to get MIB object name from database
+                    String objectName = getMibObjectName(request.getOid(), user);
+                    
                     return MibBrowserResponse.builder()
                             .oid(request.getOid())
+                            .name(objectName)
                             .value(vb.getVariable().toString())
                             .type(vb.getVariable().getClass().getSimpleName())
+                            .syntax(determineSyntax(vb.getVariable()))
                             .success(true)
+                            .responseTime(responseTime)
                             .build();
                 } else {
                     return MibBrowserResponse.builder()
                             .oid(request.getOid())
                             .success(false)
                             .errorMessage("SNMP Error: " + response.getErrorStatusText())
+                            .responseTime(responseTime)
                             .build();
                 }
             } else {
@@ -244,6 +246,7 @@ public class MibServiceImpl implements MibService {
                         .oid(request.getOid())
                         .success(false)
                         .errorMessage("No response from target")
+                        .responseTime(responseTime)
                         .build();
             }
 
@@ -253,27 +256,24 @@ public class MibServiceImpl implements MibService {
                     .oid(request.getOid())
                     .success(false)
                     .errorMessage("Error: " + e.getMessage())
+                    .responseTime(System.currentTimeMillis() - startTime)
                     .build();
         }
     }
 
     @Override
-    public List<MibBrowserResponse> performSnmpWalk(MibBrowserRequest request, User user) {        log.debug("Performing SNMP WALK for OID: {} on target: {}", request.getOid(), request.getTargetIp());
+    public List<MibBrowserResponse> performSnmpWalk(MibBrowserRequest request, User user) {
+        log.debug("Performing SNMP WALK for OID: {} on target: {}", request.getOid(), request.getTargetIp());
 
         List<MibBrowserResponse> results = new ArrayList<>();
+        long startTime = System.currentTimeMillis();
 
         try {
             DefaultUdpTransportMapping transport = new DefaultUdpTransportMapping();
             Snmp snmp = new Snmp(transport);
             transport.listen();
 
-            CommunityTarget<Address> target = new CommunityTarget<>();
-            target.setCommunity(new OctetString(request.getCommunity()));
-            target.setAddress(GenericAddress.parse("udp:" + request.getTargetIp() + "/161"));
-            target.setRetries(request.getRetries());
-            target.setTimeout(request.getTimeout());
-            target.setVersion(SnmpConstants.version2c);
-
+            CommunityTarget<Address> target = createSnmpTarget(request);
             TreeUtils treeUtils = new TreeUtils(snmp, new DefaultPDUFactory());
             List<TreeEvent> events = treeUtils.getSubtree(target, new OID(request.getOid()));
 
@@ -282,11 +282,17 @@ public class MibServiceImpl implements MibService {
                     VariableBinding[] varBindings = event.getVariableBindings();
                     if (varBindings != null) {
                         for (VariableBinding vb : varBindings) {
+                            String oid = vb.getOid().toString();
+                            String objectName = getMibObjectName(oid, user);
+                            
                             results.add(MibBrowserResponse.builder()
-                                    .oid(vb.getOid().toString())
+                                    .oid(oid)
+                                    .name(objectName)
                                     .value(vb.getVariable().toString())
                                     .type(vb.getVariable().getClass().getSimpleName())
+                                    .syntax(determineSyntax(vb.getVariable()))
                                     .success(true)
+                                    .responseTime(System.currentTimeMillis() - startTime)
                                     .build());
                         }
                     }
@@ -295,6 +301,7 @@ public class MibServiceImpl implements MibService {
                             .oid(request.getOid())
                             .success(false)
                             .errorMessage("SNMP Walk Error: " + event.getErrorMessage())
+                            .responseTime(System.currentTimeMillis() - startTime)
                             .build());
                 }
             }
@@ -307,22 +314,337 @@ public class MibServiceImpl implements MibService {
                     .oid(request.getOid())
                     .success(false)
                     .errorMessage("Error: " + e.getMessage())
+                    .responseTime(System.currentTimeMillis() - startTime)
                     .build());
         }
 
         return results;
     }
 
-    @Override
-    public MibBrowserResponse browseOid(MibBrowserRequest request) {
-        // Default user context - for compatibility
-        return performSnmpGet(request, null);
+    /**
+     * Parse MIB file using Mibble library and create hierarchical MIB objects
+     */
+    private void parseMibFileWithMibble(MibFile mibFile) throws IOException, MibLoaderException {
+        log.info("Parsing MIB file with Mibble: {}", mibFile.getFilename());
+
+        // Load standard MIBs first
+        loadStandardMibs();
+
+        // Load the uploaded MIB file
+        String baseDir = System.getProperty("user.dir");
+        Path uploadPath = Paths.get(baseDir, mibUploadDir);
+        File file = uploadPath.resolve(mibFile.getFilePath()).toFile();
+        Mib mib = mibLoader.load(file);
+
+        // Update MIB file metadata
+        updateMibFileMetadata(mibFile, mib);
+
+        // Create MIB objects with hierarchy
+        Map<String, MibObject> oidToObjectMap = new HashMap<>();
+        createMibObjectsFromMib(mib, mibFile, oidToObjectMap);
+
+        // Establish parent-child relationships
+        establishHierarchy(oidToObjectMap);
+
+        log.info("Successfully parsed MIB file: {} with {} objects", 
+                mibFile.getFilename(), oidToObjectMap.size());
     }
 
-    @Override
-    public List<MibBrowserResponse> walkOidTree(MibBrowserRequest request) {
-        // Default user context - for compatibility
-        return performSnmpWalk(request, null);
+    /**
+     * Load standard MIBs to resolve dependencies
+     */
+    private void loadStandardMibs() {
+        try {
+            // Load standard MIBs that are commonly referenced
+            mibLoader.load("SNMPv2-SMI");
+            mibLoader.load("SNMPv2-TC");
+            mibLoader.load("SNMPv2-CONF");
+            mibLoader.load("SNMPv2-MIB");
+            mibLoader.load("IANAifType-MIB");
+            mibLoader.load("IF-MIB");
+        } catch (Exception e) {
+            log.warn("Could not load some standard MIBs: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Update MIB file metadata from parsed MIB
+     */
+    private void updateMibFileMetadata(MibFile mibFile, Mib mib) {
+        mibFile.setModuleName(mib.getName());
+        
+        // Extract module information if available
+        if (mib.getHeaderComment() != null) {
+            mibFile.setDescription(mib.getHeaderComment());
+        }
+        
+        // Try to extract organization and contact info from MIB content
+        Collection<MibSymbol> symbols = mib.getAllSymbols();
+        for (MibSymbol symbol : symbols) {
+            if (symbol instanceof MibValueSymbol valueSymbol) {
+                if ("MODULE-IDENTITY".equals(valueSymbol.getType().getName())) {
+                    // Extract organization and contact info if available
+                    // This would require parsing the MODULE-IDENTITY construct
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * Create MIB objects from parsed MIB
+     */
+    private void createMibObjectsFromMib(Mib mib, MibFile mibFile, Map<String, MibObject> oidToObjectMap) {
+        Collection<MibSymbol> symbols = mib.getAllSymbols();
+        for (MibSymbol symbol : symbols) {
+            if (symbol instanceof MibValueSymbol valueSymbol) {
+                MibValue value = valueSymbol.getValue();
+                
+                if (value instanceof ObjectIdentifierValue oidValue) {
+                    String oid = oidValue.toString();
+                    
+                    MibObject mibObject = createMibObjectFromSymbol(valueSymbol, mibFile);
+                    if (mibObject != null) {
+                        mibObject = mibObjectRepository.save(mibObject);
+                        oidToObjectMap.put(oid, mibObject);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Create MIB object from MIB symbol
+     */
+    private MibObject createMibObjectFromSymbol(MibValueSymbol symbol, MibFile mibFile) {
+        try {
+            ObjectIdentifierValue oidValue = (ObjectIdentifierValue) symbol.getValue();
+            String oid = oidValue.toString();
+            
+            MibObject.MibObjectBuilder builder = MibObject.builder()
+                    .name(symbol.getName())
+                    .oid(oid)
+                    .mibFile(mibFile);
+
+            // Set description
+            if (symbol.getComment() != null) {
+                builder.description(symbol.getComment());
+            }
+
+            // Determine object type and properties
+            MibType mibType = symbol.getType();
+            if (mibType != null) {
+                setObjectTypeProperties(builder, mibType);
+            }
+
+            return builder.build();
+
+        } catch (Exception e) {
+            log.warn("Error creating MIB object from symbol: {}", symbol.getName(), e);
+            return null;
+        }
+    }
+
+    /**
+     * Set object type properties based on MIB type
+     */
+    private void setObjectTypeProperties(MibObject.MibObjectBuilder builder, MibType mibType) {
+        String typeName = mibType.getName();
+        
+        // Map MIB types to our enum
+        switch (typeName) {
+            case "OBJECT-TYPE":
+                builder.type(MibObject.MibType.OBJECT_TYPE);
+                builder.access(MibObject.MibAccess.READ_ONLY);
+                break;
+            case "MODULE-IDENTITY":
+                builder.type(MibObject.MibType.MODULE_IDENTITY);
+                builder.access(MibObject.MibAccess.NOT_ACCESSIBLE);
+                break;
+            case "OBJECT-IDENTITY":
+                builder.type(MibObject.MibType.OBJECT_IDENTITY);
+                builder.access(MibObject.MibAccess.NOT_ACCESSIBLE);
+                break;
+            case "NOTIFICATION-TYPE":
+                builder.type(MibObject.MibType.NOTIFICATION_TYPE);
+                builder.access(MibObject.MibAccess.ACCESSIBLE_FOR_NOTIFY);
+                break;
+            default:
+                builder.type(MibObject.MibType.OBJECT_TYPE);
+                builder.access(MibObject.MibAccess.READ_ONLY);
+        }
+
+        builder.status(MibObject.MibStatus.CURRENT);
+        builder.syntaxType(typeName);
+    }
+
+    /**
+     * Establish parent-child relationships between MIB objects
+     */
+    private void establishHierarchy(Map<String, MibObject> oidToObjectMap) {
+        for (MibObject mibObject : oidToObjectMap.values()) {
+            String oid = mibObject.getOid();
+            String parentOid = getParentOid(oid);
+            
+            if (parentOid != null && oidToObjectMap.containsKey(parentOid)) {
+                MibObject parent = oidToObjectMap.get(parentOid);
+                mibObject.setParent(parent);
+                parent.getChildren().add(mibObject);
+                mibObjectRepository.save(mibObject);
+            }
+        }
+    }
+
+    /**
+     * Get parent OID from child OID
+     */
+    private String getParentOid(String oid) {
+        if (oid == null || oid.isEmpty()) {
+            return null;
+        }
+        
+        int lastDotIndex = oid.lastIndexOf('.');
+        if (lastDotIndex > 0) {
+            return oid.substring(0, lastDotIndex);
+        }
+        
+        return null;
+    }
+
+    /**
+     * Create standard MIB-2 tree for users without uploaded MIBs
+     */
+    private List<MibObject> createStandardMibTree(User user) {
+        List<MibObject> rootObjects = new ArrayList<>();
+        
+        // Create ISO root (1)
+        MibObject iso = createStandardMibObject("iso", "1", "ISO root", null);
+        rootObjects.add(iso);
+        
+        // Create ORG (1.3)
+        MibObject org = createStandardMibObject("org", "1.3", "Organization", iso);
+        
+        // Create DOD (1.3.6)
+        MibObject dod = createStandardMibObject("dod", "1.3.6", "US Department of Defense", org);
+        
+        // Create Internet (1.3.6.1)
+        MibObject internet = createStandardMibObject("internet", "1.3.6.1", "Internet", dod);
+        
+        // Create standard branches
+        createStandardMibObject("directory", "1.3.6.1.1", "Directory", internet);
+        createStandardMibObject("mgmt", "1.3.6.1.2", "Management", internet);
+        createStandardMibObject("experimental", "1.3.6.1.3", "Experimental", internet);
+        createStandardMibObject("private", "1.3.6.1.4", "Private", internet);
+        createStandardMibObject("security", "1.3.6.1.5", "Security", internet);
+        createStandardMibObject("snmpV2", "1.3.6.1.6", "SNMPv2", internet);
+        
+        // Create MIB-2 (1.3.6.1.2.1)
+        MibObject mib2 = createStandardMibObject("mib-2", "1.3.6.1.2.1", "MIB-2", 
+                                                 findObjectByOid("1.3.6.1.2", rootObjects));
+        
+        // Create system group (1.3.6.1.2.1.1)
+        MibObject system = createStandardMibObject("system", "1.3.6.1.2.1.1", "System group", mib2);
+        
+        // Create system objects
+        createStandardMibObject("sysDescr", "1.3.6.1.2.1.1.1.0", "System Description", system);
+        createStandardMibObject("sysObjectID", "1.3.6.1.2.1.1.2.0", "System Object ID", system);
+        createStandardMibObject("sysUpTime", "1.3.6.1.2.1.1.3.0", "System Up Time", system);
+        createStandardMibObject("sysContact", "1.3.6.1.2.1.1.4.0", "System Contact", system);
+        createStandardMibObject("sysName", "1.3.6.1.2.1.1.5.0", "System Name", system);
+        createStandardMibObject("sysLocation", "1.3.6.1.2.1.1.6.0", "System Location", system);
+        createStandardMibObject("sysServices", "1.3.6.1.2.1.1.7.0", "System Services", system);
+        
+        return rootObjects;
+    }
+
+    /**
+     * Create a standard MIB object
+     */
+    private MibObject createStandardMibObject(String name, String oid, String description, MibObject parent) {
+        MibObject object = MibObject.builder()
+                .name(name)
+                .oid(oid)
+                .description(description)
+                .type(oid.endsWith(".0") ? MibObject.MibType.OBJECT_TYPE : MibObject.MibType.OBJECT_IDENTITY)
+                .access(oid.endsWith(".0") ? MibObject.MibAccess.READ_ONLY : MibObject.MibAccess.NOT_ACCESSIBLE)
+                .status(MibObject.MibStatus.CURRENT)
+                .syntaxType(oid.endsWith(".0") ? "OCTET STRING" : "OBJECT IDENTIFIER")
+                .parent(parent)
+                .build();
+        
+        object = mibObjectRepository.save(object);
+        
+        if (parent != null) {
+            parent.getChildren().add(object);
+        }
+        
+        return object;
+    }
+
+    /**
+     * Find object by OID in a list of objects
+     */
+    private MibObject findObjectByOid(String oid, List<MibObject> objects) {
+        return objects.stream()
+                .filter(obj -> oid.equals(obj.getOid()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Convert MIB object to hierarchical DTO with children
+     */
+    private MibObjectDto convertToHierarchicalDto(MibObject mibObject) {
+        MibObjectDto dto = mibObjectMapper.toDto(mibObject);
+        
+        // Convert children recursively
+        List<MibObjectDto> childrenDtos = mibObject.getChildren().stream()
+                .map(this::convertToHierarchicalDto)
+                .collect(Collectors.toList());
+        
+        dto.setChildren(childrenDtos);
+        return dto;
+    }
+
+    /**
+     * Create SNMP target from browser request
+     */
+    private CommunityTarget<Address> createSnmpTarget(MibBrowserRequest request) {
+        CommunityTarget<Address> target = new CommunityTarget<>();
+        target.setCommunity(new OctetString(request.getCommunity()));
+        target.setAddress(GenericAddress.parse("udp:" + request.getTargetIp() + "/" + request.getSnmpPort()));
+        target.setRetries(request.getRetries());
+        target.setTimeout(request.getTimeout());
+        target.setVersion(SnmpConstants.version2c);
+        return target;
+    }
+
+    /**
+     * Get MIB object name from OID
+     */
+    private String getMibObjectName(String oid, User user) {
+        if (user != null) {
+            Optional<MibObject> mibObject = mibObjectRepository.findByOid(oid);
+            if (mibObject.isPresent()) {
+                return mibObject.get().getName();
+            }
+        }
+        return null; // Will show only OID in response
+    }
+
+    /**
+     * Determine syntax type from SNMP variable
+     */
+    private String determineSyntax(Variable variable) {
+        if (variable instanceof Integer32) return "Integer32";
+        if (variable instanceof OctetString) return "OCTET STRING";
+        if (variable instanceof OID) return "OBJECT IDENTIFIER";
+        if (variable instanceof Counter32) return "Counter32";
+        if (variable instanceof Counter64) return "Counter64";
+        if (variable instanceof Gauge32) return "Gauge32";
+        if (variable instanceof TimeTicks) return "TimeTicks";
+        if (variable instanceof UnsignedInteger32) return "Unsigned32";
+        return variable.getClass().getSimpleName();
     }
 
     private void validateMibFile(MultipartFile file) {
@@ -340,15 +662,18 @@ public class MibServiceImpl implements MibService {
         }
     }
 
-    private String saveFileToDisk(MultipartFile file) throws IOException {
-        Path uploadPath = Paths.get(mibUploadDir);
-        Files.createDirectories(uploadPath);
+    private Path saveFileToDisk(MultipartFile file) throws IOException {
+        Path uploadDir = Paths.get(System.getProperty("user.dir"), mibUploadDir);
+        Files.createDirectories(uploadDir);
 
-        String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-        Path filePath = uploadPath.resolve(fileName);
-        file.transferTo(filePath.toFile());
+        String safeName = System.currentTimeMillis() + "_" +
+                FilenameUtils.getName(file.getOriginalFilename());
+        Path target = uploadDir.resolve(safeName);
 
-        return fileName;
+        try (InputStream in = file.getInputStream()) {
+            Files.copy(in, target);   // keeps Tomcat temp file alive once
+        }
+        return target;
     }
 
     private String calculateChecksum(byte[] content) {
@@ -363,47 +688,5 @@ public class MibServiceImpl implements MibService {
         } catch (Exception e) {
             throw new RuntimeException("Failed to calculate checksum", e);
         }
-    }
-
-    private void parseBasicMibFile(MibFile mibFile) {
-        // For now, create a simple placeholder MIB object
-        // In a real implementation, you would parse the MIB file content
-          MibObject rootObject = MibObject.builder()
-                .name("uploaded-mib")
-                .oid("1.3.6.1.4.1.999." + mibFile.getId()) // Custom enterprise OID
-                .description("Uploaded MIB file: " + mibFile.getFilename())
-                .type(MibObject.MibType.MODULE_IDENTITY)
-                .access(MibObject.MibAccess.NOT_ACCESSIBLE)
-                .status(MibObject.MibStatus.CURRENT)
-                .mibFile(mibFile)
-                .build();
-
-        mibObjectRepository.save(rootObject);
-        log.info("Created basic MIB object for file: {}", mibFile.getFilename());
-    }
-
-    private List<MibObject> createBasicMibTree(User user) {
-        List<MibObject> objects = new ArrayList<>();        // Check if basic MIB objects already exist
-        List<MibObject> existingObjects = mibObjectRepository.findByMibFileUserOrderByOid(user);
-        if (!existingObjects.isEmpty()) {
-            return existingObjects;
-        }
-
-        // Create basic system MIB objects
-        for (Map.Entry<String, String> entry : COMMON_OIDS.entrySet()) {
-            MibObject object = MibObject.builder()
-                    .name(entry.getValue())
-                    .oid(entry.getKey())
-                    .description("Standard MIB-2 object: " + entry.getValue())
-                    .type(MibObject.MibType.OBJECT_TYPE)
-                    .access(MibObject.MibAccess.READ_ONLY)
-                    .status(MibObject.MibStatus.CURRENT)
-                    .syntaxType("OCTET STRING")
-                    .build();
-
-            objects.add(mibObjectRepository.save(object));
-        }
-
-        return objects;
     }
 }

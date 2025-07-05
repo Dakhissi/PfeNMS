@@ -38,4 +38,7 @@ public interface DeviceConfigRepository extends JpaRepository<DeviceConfig, Long
 
     @Query("SELECT dc FROM DeviceConfig dc WHERE dc.consecutiveFailures >= :threshold")
     List<DeviceConfig> findDevicesWithFailures(@Param("threshold") Integer threshold);
+
+    @Query("SELECT dc FROM DeviceConfig dc LEFT JOIN FETCH dc.device LEFT JOIN FETCH dc.device.user WHERE dc.enabled = true")
+    List<DeviceConfig> findByEnabledTrueWithDevice();
 }

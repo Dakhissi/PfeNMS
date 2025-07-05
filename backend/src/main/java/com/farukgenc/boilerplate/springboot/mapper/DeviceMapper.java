@@ -62,7 +62,7 @@ public interface DeviceMapper {
     @Mapping(target = "systemUptime", ignore = true)
     @Mapping(target = "systemServices", ignore = true)
     @Mapping(target = "lastMonitored", ignore = true)
-    @Mapping(target = "monitoringEnabled", ignore = true)
+    @Mapping(target = "monitoringEnabled", constant = "false")
     @Mapping(target = "status", constant = "INACTIVE")
     Device toEntity(DeviceCreateRequest request);
 

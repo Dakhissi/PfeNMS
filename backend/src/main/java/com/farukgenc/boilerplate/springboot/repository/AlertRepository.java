@@ -22,6 +22,8 @@ public interface AlertRepository extends JpaRepository<Alert, Long> {
 
     List<Alert> findByUserAndStatus(User user, Alert.AlertStatus status);
 
+    List<Alert> findByUserAndSourceTypeAndSourceId(User user, Alert.SourceType sourceType, Long sourceId);
+
     List<Alert> findByUserAndSeverity(User user, Alert.AlertSeverity severity);
 
     List<Alert> findByUserAndType(User user, Alert.AlertType type);

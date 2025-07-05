@@ -142,7 +142,8 @@ public class MibController {
     public ResponseEntity<MibBrowserResponse> browseOid(
             @Valid @RequestBody MibBrowserRequest request) {
 
-        MibBrowserResponse response = mibService.browseOid(request);
+        User user = SecurityUtils.getCurrentUser();
+        MibBrowserResponse response = mibService.performSnmpGet(request, user);
         return ResponseEntity.ok(response);
     }
 
@@ -155,7 +156,8 @@ public class MibController {
     public ResponseEntity<List<MibBrowserResponse>> walkOidTree(
             @Valid @RequestBody MibBrowserRequest request) {
 
-        List<MibBrowserResponse> responses = mibService.walkOidTree(request);
+        User user = SecurityUtils.getCurrentUser();
+        List<MibBrowserResponse> responses = mibService.performSnmpWalk(request, user);
         return ResponseEntity.ok(responses);
     }
 }

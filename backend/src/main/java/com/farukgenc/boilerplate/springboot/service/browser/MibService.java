@@ -24,12 +24,7 @@ public interface MibService {
 
     MibObjectDto getMibObjectByOid(String oid, User user);
 
-    List<MibObjectDto> searchMibObjects(String query, User user);    // MIB Browser operations
-    MibBrowserResponse browseOid(MibBrowserRequest request);
-
-    List<MibBrowserResponse> walkOidTree(MibBrowserRequest request);
-
-    // SNMP operations with user context
+    List<MibObjectDto> searchMibObjects(String query, User user);    // SNMP operations with user context
     MibBrowserResponse performSnmpGet(MibBrowserRequest request, User user);
 
     List<MibBrowserResponse> performSnmpWalk(MibBrowserRequest request, User user);

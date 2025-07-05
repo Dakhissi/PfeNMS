@@ -2,7 +2,10 @@ package com.farukgenc.boilerplate.springboot.service.snmp;
 
 import com.farukgenc.boilerplate.springboot.model.Device;
 import com.farukgenc.boilerplate.springboot.model.DeviceConfig;
+import com.farukgenc.boilerplate.springboot.model.SystemInfo;
 import com.farukgenc.boilerplate.springboot.repository.DeviceConfigRepository;
+import com.farukgenc.boilerplate.springboot.repository.DeviceRepository;
+import com.farukgenc.boilerplate.springboot.repository.SystemInfoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -19,13 +22,15 @@ import java.util.concurrent.CompletableFuture;
  * Main SNMP polling orchestrator service that coordinates all polling activities
  */
 @Slf4j
-@Service
+@Service("snmpPollingService")
 @RequiredArgsConstructor
 public class SnmpPollingService {
 
+    private final DeviceRepository deviceRepository;
     private final DeviceConfigRepository deviceConfigRepository;
     private final SnmpClientService snmpClientService;
     private final SystemInfoPollService systemInfoPollService;
+    private final SystemInfoRepository  systemInfoRepository;
     private final SystemUnitPollService systemUnitPollService;
     private final InterfacePollService interfacePollService;
     private final IpProfilePollService ipProfilePollService;
@@ -37,43 +42,48 @@ public class SnmpPollingService {
      * Runs every 30 seconds for real-time monitoring
      */
     @Scheduled(fixedRate = 30000) // 30 seconds
-    @Transactional(readOnly = true)
+    @Transactional
     public void scheduledPollAllDevices() {
         log.info("Starting scheduled SNMP polling for all devices");
-        
         try {
-            List<DeviceConfig> enabledConfigs = deviceConfigRepository.findByEnabledTrue();
-            
+            // Use join fetch to eagerly load device relationships
+            List<DeviceConfig> enabledConfigs = deviceConfigRepository.findByEnabledTrueWithDevice();
+
             if (enabledConfigs.isEmpty()) {
                 log.info("No enabled device configurations found for polling");
                 return;
             }
             
-            log.info("Found {} enabled device configurations to poll", enabledConfigs.size());
-            
-            // Poll each device asynchronously in parallel with proper thread management
-            List<CompletableFuture<Void>> futures = new ArrayList<>();
-            for (DeviceConfig config : enabledConfigs) {
-                CompletableFuture<Void> future = pollDeviceAsync(config);
-                futures.add(future);
+            // Filter configs for devices that have monitoring enabled
+            List<DeviceConfig> monitoringEnabledConfigs = enabledConfigs.stream()
+                .filter(config -> config.getDevice().getMonitoringEnabled() != null && config.getDevice().getMonitoringEnabled())
+                .toList();
+
+            if (monitoringEnabledConfigs.isEmpty()) {
+                log.info("No devices with monitoring enabled found for polling");
+                return;
             }
-            
-            // Wait for all polling tasks to complete (with timeout)
-            CompletableFuture<Void> allFutures = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
-            try {
-                allFutures.get(120, java.util.concurrent.TimeUnit.SECONDS); // 2 minute timeout
-                log.info("Completed parallel polling of {} devices", enabledConfigs.size());
-            } catch (Exception e) {
-                log.warn("Polling timeout or error occurred: {}", e.getMessage());
+
+            log.info("Found {} enabled device configurations with monitoring enabled to poll", monitoringEnabledConfigs.size());
+
+            // Poll each device synchronously to avoid transaction conflicts
+            for (DeviceConfig config : monitoringEnabledConfigs) {
+                try {
+                    pollDevice(config);
+                } catch (Exception e) {
+                    log.error("Error polling device {}: {}", config.getDevice().getName(), e.getMessage(), e);
+                }
             }
-            
+
+            log.info("Completed polling of {} devices", monitoringEnabledConfigs.size());
+
         } catch (Exception e) {
             log.error("Error during scheduled polling: {}", e.getMessage(), e);
         }
     }
 
     /**
-     * Poll a single device asynchronously
+     * Poll a single device asynchronously - for manual triggering
      */
     @Async("snmpTaskExecutor")
     public CompletableFuture<Void> pollDeviceAsync(DeviceConfig config) {
@@ -86,6 +96,13 @@ public class SnmpPollingService {
     @Transactional
     public void pollDevice(DeviceConfig config) {
         Device device = config.getDevice();
+
+        // CRITICAL: Check if monitoring is enabled for this device
+        if (device.getMonitoringEnabled() == null || !device.getMonitoringEnabled()) {
+            log.debug("Monitoring is disabled for device: {} - skipping polling", device.getName());
+            return;
+        }
+
         log.debug("Starting SNMP polling for device: {} ({})", device.getName(), config.getTargetIp());
         
         try {
@@ -109,7 +126,7 @@ public class SnmpPollingService {
             
             // Poll system information
             try {
-                systemInfoPollService.pollDeviceSystemInfo(device, config);
+                SystemInfo sysinfo = systemInfoPollService.pollDeviceSystemInfo(device, config);
                 log.debug("System info polling completed for device: {}", device.getName());
             } catch (Exception e) {
                 log.warn("System info polling failed for device {}: {}", device.getName(), e.getMessage());
@@ -260,6 +277,8 @@ public class SnmpPollingService {
             .lastPollingRun(LocalDateTime.now())
             .build();
     }
+
+
 
     /**
      * Statistics for polling operations

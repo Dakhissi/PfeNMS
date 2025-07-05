@@ -89,7 +89,7 @@ public class SystemUnitPollService {
             
         } catch (Exception e) {
             log.error("Failed to poll system units for device {}: {}", device.getName(), e.getMessage(), e);
-            throw new RuntimeException("System unit polling failed for device: " + device.getName(), e);
+            // Don't throw RuntimeException to prevent transaction rollback issues
         }
     }
 
@@ -208,7 +208,7 @@ public class SystemUnitPollService {
             systemUnit.setUnitModelName(entPhysicalModelName.toString());
         }
         
-        // Alias
+        // Physical Alias
         Variable entPhysicalAlias = data.get(ENT_PHYSICAL_ALIAS_OID + suffix);
         if (entPhysicalAlias != null) {
             systemUnit.setUnitAlias(entPhysicalAlias.toString());
@@ -228,11 +228,13 @@ public class SystemUnitPollService {
     }
 
     /**
-     * Map SNMP physical class to string
+     * Map SNMP physical class integer to human-readable string
      */
     private String mapPhysicalClass(Integer classValue) {
-        if (classValue == null) return "unknown";
-        
+        if (classValue == null) {
+            return "unknown";
+        }
+
         return switch (classValue) {
             case 1 -> "other";
             case 2 -> "unknown";
@@ -246,7 +248,7 @@ public class SystemUnitPollService {
             case 10 -> "port";
             case 11 -> "stack";
             case 12 -> "cpu";
-            default -> "class" + classValue;
+            default -> "unknown(" + classValue + ")";
         };
     }
 }

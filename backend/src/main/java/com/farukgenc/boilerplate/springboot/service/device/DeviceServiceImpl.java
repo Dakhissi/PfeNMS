@@ -26,8 +26,7 @@ public class DeviceServiceImpl implements DeviceService {
 
     private final DeviceRepository deviceRepository;
     private final DeviceMapper deviceMapper;
-    // Note: DeviceMonitoringService would be injected here in a real implementation
-    // but to avoid circular dependency issues in this demo, we'll keep it simple
+    private final DeviceMonitoringService deviceMonitoringService;
 
     @Override
     public DeviceDto createDevice(DeviceDto deviceDto, User user) {
@@ -224,9 +223,19 @@ public class DeviceServiceImpl implements DeviceService {
         Device device = deviceRepository.findByIdAndUser(deviceId, user)
                 .orElseThrow(() -> new IllegalArgumentException("Device not found or access denied"));
         
-        // This would typically call the monitoring service
-        // For now, we'll just log the action
-        log.info("Monitoring triggered for device: {} ({})", device.getName(), 
+        // Enable monitoring for this device
+        device.setMonitoringEnabled(true);
+        device.setStatus(Device.DeviceStatus.ACTIVE);
+        device = deviceRepository.save(device);
+
+        log.info("Monitoring enabled and triggered for device: {} ({})", device.getName(),
                 device.getDeviceConfig() != null ? device.getDeviceConfig().getTargetIp() : "N/A");
+
+        // Trigger immediate monitoring through the DeviceMonitoringService
+        try {
+            deviceMonitoringService.triggerDeviceMonitoring(deviceId, user);
+        } catch (Exception e) {
+            log.error("Error during immediate monitoring trigger for device {}: {}", device.getName(), e.getMessage(), e);
+        }
     }
 }

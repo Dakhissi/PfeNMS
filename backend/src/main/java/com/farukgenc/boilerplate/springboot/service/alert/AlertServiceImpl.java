@@ -245,6 +245,35 @@ public class AlertServiceImpl implements AlertService {
         log.debug("Checking system status for system unit ID: {}", systemUnitId);
     }
 
+    @Override
+    public List<AlertDto> getAlertsByDevice(Long deviceId, User user) {
+
+        List<Alert> alerts = alertRepository.findByUserAndSourceTypeAndSourceId(user, Alert.SourceType.DEVICE, deviceId);
+        return alerts.stream()
+                .map(alertMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+
+    @Override
+    public List<AlertDto> getAlertsBySystemUnit(Long systemUnitId, User user) {
+
+        List<Alert> alerts = alertRepository.findByUserAndSourceTypeAndSourceId(user, Alert.SourceType.SYSTEM_UNIT, systemUnitId);
+        return alerts.stream()
+                .map(alertMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<AlertDto> getAlertsByInterface(Long interfaceId, User user) {
+
+        List<Alert> alerts = alertRepository.findByUserAndSourceTypeAndSourceId(user, Alert.SourceType.INTERFACE, interfaceId);
+        return alerts.stream()
+                .map(alertMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+
     // Private helper methods
 
     private String generateAlertKey(Alert.AlertType type, Long sourceId, Alert.SourceType sourceType, Alert.AlertSeverity severity) {

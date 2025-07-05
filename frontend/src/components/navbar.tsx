@@ -91,23 +91,23 @@ export function Navbar() {
               >
                 Register
               </Link>
+              
+              {/* Store link - visible to anonymous users only */}
+              <Link
+                to="/store"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`transition-colors hover:text-foreground/80 ${
+                  location.pathname.startsWith("/store") ? "text-foreground" : "text-foreground/60"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4" />
+                  Check our store
+                </div>
+              </Link>
             </>
           )}
-          
-          {/* Store link - visible to all users */}
-          <Link
-            to="/store"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`transition-colors hover:text-foreground/80 ${
-              location.pathname.startsWith("/store") ? "text-foreground" : "text-foreground/60"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4" />
-              Check our store
-            </div>
-          </Link>
         </nav>
         
         <div className="ml-auto flex items-center space-x-4">

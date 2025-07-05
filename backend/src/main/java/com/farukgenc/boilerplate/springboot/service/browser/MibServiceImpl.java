@@ -403,10 +403,22 @@ public class MibServiceImpl implements MibService {
                 if (value instanceof ObjectIdentifierValue oidValue) {
                     String oid = oidValue.toString();
                     
-                    MibObject mibObject = createMibObjectFromSymbol(valueSymbol, mibFile);
-                    if (mibObject != null) {
-                        mibObject = mibObjectRepository.save(mibObject);
-                        oidToObjectMap.put(oid, mibObject);
+                    // Check if object already exists for this MIB file
+                    Optional<MibObject> existingObject = mibObjectRepository.findByOidAndMibFile(oid, mibFile);
+                    
+                    if (existingObject.isPresent()) {
+                        // Update existing object
+                        MibObject existing = existingObject.get();
+                        updateMibObjectFromSymbol(existing, valueSymbol);
+                        mibObjectRepository.save(existing);
+                        oidToObjectMap.put(oid, existing);
+                    } else {
+                        // Create new object
+                        MibObject mibObject = createMibObjectFromSymbol(valueSymbol, mibFile);
+                        if (mibObject != null) {
+                            mibObject = mibObjectRepository.save(mibObject);
+                            oidToObjectMap.put(oid, mibObject);
+                        }
                     }
                 }
             }
@@ -424,7 +436,8 @@ public class MibServiceImpl implements MibService {
             MibObject.MibObjectBuilder builder = MibObject.builder()
                     .name(symbol.getName())
                     .oid(oid)
-                    .mibFile(mibFile);
+                    .mibFile(mibFile)
+                    .user(mibFile.getUser());
 
             // Set description
             if (symbol.getComment() != null) {
@@ -442,6 +455,35 @@ public class MibServiceImpl implements MibService {
         } catch (Exception e) {
             log.warn("Error creating MIB object from symbol: {}", symbol.getName(), e);
             return null;
+        }
+    }
+
+    /**
+     * Update existing MIB object from MIB symbol
+     */
+    private void updateMibObjectFromSymbol(MibObject existingObject, MibValueSymbol symbol) {
+        try {
+            // Update name if different
+            if (!existingObject.getName().equals(symbol.getName())) {
+                existingObject.setName(symbol.getName());
+            }
+
+            // Update description if available
+            if (symbol.getComment() != null && !symbol.getComment().equals(existingObject.getDescription())) {
+                existingObject.setDescription(symbol.getComment());
+            }
+
+            // Update type properties if needed
+            MibType mibType = symbol.getType();
+            if (mibType != null) {
+                String typeName = mibType.getName();
+                if (!typeName.equals(existingObject.getSyntaxType())) {
+                    setObjectTypeProperties(existingObject, mibType);
+                }
+            }
+
+        } catch (Exception e) {
+            log.warn("Error updating MIB object from symbol: {}", symbol.getName(), e);
         }
     }
 
@@ -476,6 +518,39 @@ public class MibServiceImpl implements MibService {
 
         builder.status(MibObject.MibStatus.CURRENT);
         builder.syntaxType(typeName);
+    }
+
+    /**
+     * Set object type properties for existing MIB object
+     */
+    private void setObjectTypeProperties(MibObject mibObject, MibType mibType) {
+        String typeName = mibType.getName();
+        
+        // Map MIB types to our enum
+        switch (typeName) {
+            case "OBJECT-TYPE":
+                mibObject.setType(MibObject.MibType.OBJECT_TYPE);
+                mibObject.setAccess(MibObject.MibAccess.READ_ONLY);
+                break;
+            case "MODULE-IDENTITY":
+                mibObject.setType(MibObject.MibType.MODULE_IDENTITY);
+                mibObject.setAccess(MibObject.MibAccess.NOT_ACCESSIBLE);
+                break;
+            case "OBJECT-IDENTITY":
+                mibObject.setType(MibObject.MibType.OBJECT_IDENTITY);
+                mibObject.setAccess(MibObject.MibAccess.NOT_ACCESSIBLE);
+                break;
+            case "NOTIFICATION-TYPE":
+                mibObject.setType(MibObject.MibType.NOTIFICATION_TYPE);
+                mibObject.setAccess(MibObject.MibAccess.ACCESSIBLE_FOR_NOTIFY);
+                break;
+            default:
+                mibObject.setType(MibObject.MibType.OBJECT_TYPE);
+                mibObject.setAccess(MibObject.MibAccess.READ_ONLY);
+        }
+
+        mibObject.setStatus(MibObject.MibStatus.CURRENT);
+        mibObject.setSyntaxType(typeName);
     }
 
     /**
@@ -518,41 +593,41 @@ public class MibServiceImpl implements MibService {
         List<MibObject> rootObjects = new ArrayList<>();
         
         // Create ISO root (1)
-        MibObject iso = createStandardMibObject("iso", "1", "ISO root", null);
+        MibObject iso = createStandardMibObject("iso", "1", "ISO root", null, user);
         rootObjects.add(iso);
         
         // Create ORG (1.3)
-        MibObject org = createStandardMibObject("org", "1.3", "Organization", iso);
+        MibObject org = createStandardMibObject("org", "1.3", "Organization", iso, user);
         
         // Create DOD (1.3.6)
-        MibObject dod = createStandardMibObject("dod", "1.3.6", "US Department of Defense", org);
+        MibObject dod = createStandardMibObject("dod", "1.3.6", "US Department of Defense", org, user);
         
         // Create Internet (1.3.6.1)
-        MibObject internet = createStandardMibObject("internet", "1.3.6.1", "Internet", dod);
+        MibObject internet = createStandardMibObject("internet", "1.3.6.1", "Internet", dod, user);
         
         // Create standard branches
-        createStandardMibObject("directory", "1.3.6.1.1", "Directory", internet);
-        createStandardMibObject("mgmt", "1.3.6.1.2", "Management", internet);
-        createStandardMibObject("experimental", "1.3.6.1.3", "Experimental", internet);
-        createStandardMibObject("private", "1.3.6.1.4", "Private", internet);
-        createStandardMibObject("security", "1.3.6.1.5", "Security", internet);
-        createStandardMibObject("snmpV2", "1.3.6.1.6", "SNMPv2", internet);
+        createStandardMibObject("directory", "1.3.6.1.1", "Directory", internet, user);
+        createStandardMibObject("mgmt", "1.3.6.1.2", "Management", internet, user);
+        createStandardMibObject("experimental", "1.3.6.1.3", "Experimental", internet, user);
+        createStandardMibObject("private", "1.3.6.1.4", "Private", internet, user);
+        createStandardMibObject("security", "1.3.6.1.5", "Security", internet, user);
+        createStandardMibObject("snmpV2", "1.3.6.1.6", "SNMPv2", internet, user);
         
         // Create MIB-2 (1.3.6.1.2.1)
         MibObject mib2 = createStandardMibObject("mib-2", "1.3.6.1.2.1", "MIB-2", 
-                                                 findObjectByOid("1.3.6.1.2", rootObjects));
+                                                 findObjectByOid("1.3.6.1.2", rootObjects), user);
         
         // Create system group (1.3.6.1.2.1.1)
-        MibObject system = createStandardMibObject("system", "1.3.6.1.2.1.1", "System group", mib2);
+        MibObject system = createStandardMibObject("system", "1.3.6.1.2.1.1", "System group", mib2, user);
         
         // Create system objects
-        createStandardMibObject("sysDescr", "1.3.6.1.2.1.1.1.0", "System Description", system);
-        createStandardMibObject("sysObjectID", "1.3.6.1.2.1.1.2.0", "System Object ID", system);
-        createStandardMibObject("sysUpTime", "1.3.6.1.2.1.1.3.0", "System Up Time", system);
-        createStandardMibObject("sysContact", "1.3.6.1.2.1.1.4.0", "System Contact", system);
-        createStandardMibObject("sysName", "1.3.6.1.2.1.1.5.0", "System Name", system);
-        createStandardMibObject("sysLocation", "1.3.6.1.2.1.1.6.0", "System Location", system);
-        createStandardMibObject("sysServices", "1.3.6.1.2.1.1.7.0", "System Services", system);
+        createStandardMibObject("sysDescr", "1.3.6.1.2.1.1.1.0", "System Description", system, user);
+        createStandardMibObject("sysObjectID", "1.3.6.1.2.1.1.2.0", "System Object ID", system, user);
+        createStandardMibObject("sysUpTime", "1.3.6.1.2.1.1.3.0", "System Up Time", system, user);
+        createStandardMibObject("sysContact", "1.3.6.1.2.1.1.4.0", "System Contact", system, user);
+        createStandardMibObject("sysName", "1.3.6.1.2.1.1.5.0", "System Name", system, user);
+        createStandardMibObject("sysLocation", "1.3.6.1.2.1.1.6.0", "System Location", system, user);
+        createStandardMibObject("sysServices", "1.3.6.1.2.1.1.7.0", "System Services", system, user);
         
         return rootObjects;
     }
@@ -560,7 +635,7 @@ public class MibServiceImpl implements MibService {
     /**
      * Create a standard MIB object
      */
-    private MibObject createStandardMibObject(String name, String oid, String description, MibObject parent) {
+    private MibObject createStandardMibObject(String name, String oid, String description, MibObject parent, User user) {
         MibObject object = MibObject.builder()
                 .name(name)
                 .oid(oid)
@@ -570,6 +645,7 @@ public class MibServiceImpl implements MibService {
                 .status(MibObject.MibStatus.CURRENT)
                 .syntaxType(oid.endsWith(".0") ? "OCTET STRING" : "OBJECT IDENTIFIER")
                 .parent(parent)
+                .user(user)
                 .build();
         
         object = mibObjectRepository.save(object);

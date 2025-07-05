@@ -7,6 +7,8 @@ export const mibKeys = {
   tree: () => [...mibKeys.all, 'tree'] as const,
   files: () => [...mibKeys.all, 'files'] as const,
   file: (id: string) => [...mibKeys.all, 'file', id] as const,
+  search: (query: string) => [...mibKeys.all, 'search', query] as const,
+  object: (oid: string) => [...mibKeys.all, 'object', oid] as const,
 }
 
 // Hooks for MIB tree
@@ -62,5 +64,36 @@ export function useDeleteMibFile() {
       // Also invalidate tree as deleted MIB might affect tree
       queryClient.invalidateQueries({ queryKey: mibKeys.tree() })
     },
+  })
+}
+
+// Browser hooks
+export function useSearchMibObjects(query: string) {
+  return useQuery({
+    queryKey: mibKeys.search(query),
+    queryFn: () => mibApi.searchObjects(query),
+    enabled: !!query && query.length >= 2,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  })
+}
+
+export function useMibObjectByOid(oid: string) {
+  return useQuery({
+    queryKey: mibKeys.object(oid),
+    queryFn: () => mibApi.getObjectByOid(oid),
+    enabled: !!oid,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+export function useBrowseOid() {
+  return useMutation({
+    mutationFn: mibApi.browseOid,
+  })
+}
+
+export function useWalkOidTree() {
+  return useMutation({
+    mutationFn: mibApi.walkOidTree,
   })
 } 

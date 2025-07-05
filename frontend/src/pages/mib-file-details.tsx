@@ -10,11 +10,12 @@ import {
   CheckCircle,
   Clock,
   RefreshCw,
-  Trash2,
-  Download,
   Calendar,
   HardDrive,
-  Info
+  Info,
+  User,
+  Hash,
+  Package
 } from "lucide-react"
 
 export function MibFileDetailsPage() {
@@ -23,7 +24,7 @@ export function MibFileDetailsPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'PARSED': return <CheckCircle className="h-4 w-4 text-green-500" />
+      case 'LOADED': return <CheckCircle className="h-4 w-4 text-green-500" />
       case 'PARSING': return <Clock className="h-4 w-4 text-yellow-500" />
       case 'ERROR': return <AlertTriangle className="h-4 w-4 text-red-500" />
       default: return <Clock className="h-4 w-4 text-gray-500" />
@@ -32,7 +33,7 @@ export function MibFileDetailsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'PARSED': return 'success'
+      case 'LOADED': return 'success'
       case 'PARSING': return 'warning'
       case 'ERROR': return 'destructive'
       default: return 'secondary'
@@ -112,82 +113,160 @@ export function MibFileDetailsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <HardDrive className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">File Size:</span>
-                  <span className="text-sm text-muted-foreground">
-                    {formatFileSize(fileDetails.size)}
-                  </span>
-                </div>
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Basic Information */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg mb-3">File Information</h3>
                 
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Upload Date:</span>
-                  <span className="text-sm text-muted-foreground">
-                    {formatDate(fileDetails.uploadDate)}
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Info className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Status:</span>
+                <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    {getStatusIcon(fileDetails.status)}
-                    <Badge variant={getStatusColor(fileDetails.status) as "success" | "warning" | "destructive" | "secondary"}>
-                      {fileDetails.status}
-                    </Badge>
+                    <HardDrive className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">File Size:</span>
+                    <span className="text-sm text-muted-foreground">
+                      {formatFileSize(fileDetails.fileSize)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Upload Date:</span>
+                    <span className="text-sm text-muted-foreground">
+                      {formatDate(fileDetails.createdAt)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Hash className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">File Hash:</span>
+                    <span className="text-sm text-muted-foreground font-mono">
+                      {fileDetails.fileHash}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Status:</span>
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(fileDetails.status)}
+                      <Badge variant={getStatusColor(fileDetails.status) as "success" | "warning" | "destructive" | "secondary"}>
+                        {fileDetails.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Object Count:</span>
+                    <span className="text-sm text-muted-foreground">
+                      {fileDetails.objectCount}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Uploaded By:</span>
+                    <span className="text-sm text-muted-foreground">
+                      {fileDetails.userName}
+                    </span>
                   </div>
                 </div>
               </div>
               
-              <div className="space-y-3">
-                {fileDetails.parsedNodes && (
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Parsed Nodes:</span>
-                    <span className="text-sm text-muted-foreground">
-                      {fileDetails.parsedNodes}
-                    </span>
-                  </div>
-                )}
+              {/* MIB Module Information */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg mb-3">MIB Module Details</h3>
                 
-                {fileDetails.totalNodes && (
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Total Nodes:</span>
-                    <span className="text-sm text-muted-foreground">
-                      {fileDetails.totalNodes}
-                    </span>
-                  </div>
-                )}
-                
-                {fileDetails.description && (
-                  <div className="flex items-start gap-2">
-                    <Info className="h-4 w-4 text-muted-foreground mt-0.5" />
-                    <div>
-                      <span className="text-sm font-medium">Description:</span>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {fileDetails.description}
-                      </p>
+                <div className="space-y-3">
+                  {fileDetails.moduleName && (
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Module Name:</span>
+                      <span className="text-sm text-muted-foreground">
+                        {fileDetails.moduleName}
+                      </span>
                     </div>
-                  </div>
-                )}
+                  )}
+                  
+                  {fileDetails.moduleOid && (
+                    <div className="flex items-center gap-2">
+                      <Hash className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Module OID:</span>
+                      <span className="text-sm text-muted-foreground font-mono">
+                        {fileDetails.moduleOid}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {fileDetails.version && (
+                    <div className="flex items-center gap-2">
+                      <Info className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Version:</span>
+                      <span className="text-sm text-muted-foreground">
+                        {fileDetails.version}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {fileDetails.organization && (
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Organization:</span>
+                      <span className="text-sm text-muted-foreground">
+                        {fileDetails.organization}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {fileDetails.contactInfo && (
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Contact:</span>
+                      <span className="text-sm text-muted-foreground">
+                        {fileDetails.contactInfo}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {fileDetails.description && (
+                    <div className="flex items-start gap-2">
+                      <Info className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      <div>
+                        <span className="text-sm font-medium">Description:</span>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {fileDetails.description}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             
-            {fileDetails.errorMessage && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            {fileDetails.loadErrorMessage && (
+              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <div className="flex items-center gap-2 text-red-700">
                   <AlertTriangle className="h-4 w-4" />
-                  <span className="font-medium">Error:</span>
+                  <span className="font-medium">Load Error:</span>
                 </div>
                 <p className="text-sm text-red-600 mt-1">
-                  {fileDetails.errorMessage}
+                  {fileDetails.loadErrorMessage}
                 </p>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* File Path Information */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>File Path</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="p-3 bg-muted rounded-lg">
+              <code className="text-sm text-muted-foreground break-all">
+                {fileDetails.filePath}
+              </code>
+            </div>
           </CardContent>
         </Card>
 
@@ -198,27 +277,14 @@ export function MibFileDetailsPage() {
               <CardTitle>File Content</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="bg-muted p-4 rounded-lg">
-                <pre className="text-sm overflow-x-auto whitespace-pre-wrap">
-                  {fileDetails.content}
+              <div className="max-h-96 overflow-y-auto">
+                <pre className="text-sm bg-muted p-4 rounded-lg overflow-x-auto">
+                  <code>{fileDetails.content}</code>
                 </pre>
               </div>
             </CardContent>
           </Card>
         )}
-
-        {/* Actions */}
-        <div className="flex items-center gap-4 mt-6">
-          <Button variant="outline" className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Download
-          </Button>
-          
-          <Button variant="destructive" className="flex items-center gap-2">
-            <Trash2 className="h-4 w-4" />
-            Delete File
-          </Button>
-        </div>
       </div>
     </div>
   )

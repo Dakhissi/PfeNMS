@@ -18,7 +18,10 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "mib_objects")
+@Table(name = "mib_objects", 
+       uniqueConstraints = {
+           @UniqueConstraint(columnNames = {"oid", "mib_file_id"})
+       })
 public class MibObject {
 
     @Id
@@ -28,7 +31,7 @@ public class MibObject {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String oid;
 
     @Column(columnDefinition = "TEXT")

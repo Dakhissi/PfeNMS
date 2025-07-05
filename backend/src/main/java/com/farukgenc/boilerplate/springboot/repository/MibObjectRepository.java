@@ -21,6 +21,8 @@ public interface MibObjectRepository extends JpaRepository<MibObject, Long> {
 
     Optional<MibObject> findByOid(String oid);
 
+    Optional<MibObject> findByOidAndMibFile(String oid, MibFile mibFile);
+
     List<MibObject> findByOidStartingWith(String oidPrefix);
 
     @Query("SELECT mo FROM MibObject mo WHERE mo.name LIKE %:name% AND mo.mibFile.user.id = :userId")
@@ -30,7 +32,9 @@ public interface MibObjectRepository extends JpaRepository<MibObject, Long> {
     List<MibObject> findByOidContainingAndUserId(@Param("oidPart") String oidPart, @Param("userId") Long userId);
 
     @Query("SELECT mo FROM MibObject mo WHERE mo.parent IS NULL AND mo.mibFile.user.id = :userId")
-    List<MibObject> findRootsByUserId(@Param("userId") Long userId);    long countByMibFile(MibFile mibFile);
+    List<MibObject> findRootsByUserId(@Param("userId") Long userId);
+
+    long countByMibFile(MibFile mibFile);
 
     void deleteByMibFile(MibFile mibFile);
 

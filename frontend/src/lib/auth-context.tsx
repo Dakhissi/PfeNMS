@@ -16,15 +16,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = authService.getToken()
     if (token) {
       setIsAuthenticated(true)
-      // Try to get user data
+      // Try to get user data, but don't automatically logout on failure
       setIsLoading(true)
       authService.getCurrentUser()
-        .then((data) => {
-          setUser(data.user)
+        .then(() => {
+          // Currently getCurrentUser just returns the token string
+          // In the future, it should return user data
+          // For now, we'll keep the user authenticated but without user details
+          console.log('Token exists, user authenticated')
         })
-        .catch(() => {
-          // If getting user data fails, clear auth state
-          logout()
+        .catch((error) => {
+          // Only logout if the token is completely invalid or missing
+          // For network errors or temporary API issues, keep the user logged in
+          console.warn('Failed to get user data:', error)
+          if (error.message === 'No authentication token') {
+            // Token is missing, clear auth state
+            logout()
+          }
+          // For other errors, keep the user authenticated but without user details
         })
         .finally(() => {
           setIsLoading(false)

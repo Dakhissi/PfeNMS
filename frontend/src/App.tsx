@@ -4,10 +4,19 @@ import { ThemeProvider } from "@/lib/theme-provider"
 import { AuthProvider } from "@/lib/auth-context"
 import { Navbar } from "@/components/navbar"
 import { ProtectedRoute, PublicRoute } from "@/components/protected-route"
+import { AuthRedirect } from "@/components/auth-redirect"
 import { HomePage } from "@/pages/home"
 import { LoginPage } from "@/pages/login"
 import { RegisterPage } from "@/pages/register"
 import { DashboardPage } from "@/pages/dashboard"
+import { DevicesPage } from "@/pages/devices"
+import { DeviceDetailsPage } from "@/pages/device-details"
+import { DeviceFormPage } from "@/pages/device-form"
+import { DiscoveryDashboardPage } from "@/pages/discovery-dashboard"
+import { DiscoveryStartPage } from "@/pages/discovery-start"
+import { StorePage } from "@/pages/store"
+import { MibBrowserPage } from "@/pages/mib-browser"
+import { MibFileDetailsPage } from "@/pages/mib-file-details"
 
 // Create a client
 const queryClient = new QueryClient({
@@ -28,7 +37,14 @@ function App() {
             <div className="min-h-screen bg-background text-foreground">
               <Navbar />
               <Routes>
-                <Route path="/" element={<HomePage />} />
+                <Route 
+                  path="/" 
+                  element={
+                    <AuthRedirect redirectTo="/dashboard">
+                      <HomePage />
+                    </AuthRedirect>
+                  } 
+                />
                 <Route 
                   path="/login" 
                   element={
@@ -46,10 +62,81 @@ function App() {
                   } 
                 />
                 <Route 
+                  path="/store" 
+                  element={<StorePage />}
+                />
+                <Route 
                   path="/dashboard" 
                   element={
                     <ProtectedRoute>
                       <DashboardPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                {/* Device Management Routes */}
+                <Route 
+                  path="/devices" 
+                  element={
+                    <ProtectedRoute>
+                      <DevicesPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/devices/add" 
+                  element={
+                    <ProtectedRoute>
+                      <DeviceFormPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/devices/:id" 
+                  element={
+                    <ProtectedRoute>
+                      <DeviceDetailsPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/devices/:id/edit" 
+                  element={
+                    <ProtectedRoute>
+                      <DeviceFormPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                {/* Discovery Routes */}
+                <Route 
+                  path="/discovery" 
+                  element={
+                    <ProtectedRoute>
+                      <DiscoveryDashboardPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/discovery/start" 
+                  element={
+                    <ProtectedRoute>
+                      <DiscoveryStartPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                {/* MIB Browser Routes */}
+                <Route 
+                  path="/mib" 
+                  element={
+                    <ProtectedRoute>
+                      <MibBrowserPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/mib/files/:id" 
+                  element={
+                    <ProtectedRoute>
+                      <MibFileDetailsPage />
                     </ProtectedRoute>
                   } 
                 />

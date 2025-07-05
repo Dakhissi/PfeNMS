@@ -11,7 +11,8 @@ import {
   ArrowRight,
   CheckCircle,
   Zap,
-  Globe
+  Globe,
+  ShoppingCart
 } from "lucide-react"
 import { Link } from "react-router-dom"
 
@@ -154,6 +155,81 @@ export function HomePage() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Store Section */}
+      <section className="py-24">
+        <div className="container mx-auto px-4">
+          <div className="mx-auto max-w-2xl text-center mb-16">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Premium Networking Equipment
+            </h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              Discover high-quality networking equipment and tools to enhance your infrastructure
+            </p>
+          </div>
+          <div className="grid gap-8 md:grid-cols-3">
+            <Card className="group hover:shadow-lg transition-all duration-300">
+              <CardHeader>
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                  <Network className="h-6 w-6 text-blue-600" />
+                </div>
+                <CardTitle className="text-xl">Networking Equipment</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground leading-relaxed mb-4">
+                  High-performance switches, routers, and networking devices from top manufacturers.
+                </p>
+                <Button asChild className="w-full">
+                  <Link to="/store" target="_blank" rel="noopener noreferrer">
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    Browse Equipment
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+            
+            <Card className="group hover:shadow-lg transition-all duration-300">
+              <CardHeader>
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                  <Shield className="h-6 w-6 text-green-600" />
+                </div>
+                <CardTitle className="text-xl">Security Tools</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground leading-relaxed mb-4">
+                  Advanced security solutions and monitoring tools for network protection.
+                </p>
+                <Button asChild className="w-full">
+                  <Link to="/store" target="_blank" rel="noopener noreferrer">
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    View Security Tools
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+            
+            <Card className="group hover:shadow-lg transition-all duration-300">
+              <CardHeader>
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                  <BarChart3 className="h-6 w-6 text-purple-600" />
+                </div>
+                <CardTitle className="text-xl">Software & Licenses</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground leading-relaxed mb-4">
+                  Professional software licenses and monitoring tools for enterprise use.
+                </p>
+                <Button asChild className="w-full">
+                  <Link to="/store" target="_blank" rel="noopener noreferrer">
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    Explore Software
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>

@@ -1,0 +1,540 @@
+const { PrismaClient } = require("@prisma/client");
+const bcrypt = require("bcryptjs");
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log("🌱 Starting database seeding...");
+
+  // Create admin users
+  const adminPassword = await bcrypt.hash("admin123", 12);
+  const admin = await prisma.user.upsert({
+    where: { email: "admin@store.com" },
+    update: {},
+    create: {
+      email: "admin@store.com",
+      username: "admin",
+      password: adminPassword,
+      role: "ADMIN",
+      avatar:
+        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+    },
+  });
+  console.log("✅ Admin user created:", admin.email);
+
+  // Create simple admin account with username "admin2" and password "admin"
+  const simpleAdminPassword = await bcrypt.hash("admin", 12);
+  const simpleAdmin = await prisma.user.upsert({
+    where: { email: "admin@admin.com" },
+    update: {},
+    create: {
+      email: "admin@admin.com",
+      username: "admin2",
+      password: simpleAdminPassword,
+      role: "ADMIN",
+      avatar:
+        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+    },
+  });
+  console.log("✅ Simple admin user created:", simpleAdmin.email);
+
+  // Create another admin account with username "admin3" and password "admin"
+  const simpleAdmin2Password = await bcrypt.hash("admin", 12);
+  const simpleAdmin2 = await prisma.user.upsert({
+    where: { email: "admin@simple.com" },
+    update: {},
+    create: {
+      email: "admin@simple.com",
+      username: "admin3",
+      password: simpleAdmin2Password,
+      role: "ADMIN",
+      avatar:
+        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+    },
+  });
+  console.log("✅ Additional admin user created:", simpleAdmin2.email);
+
+  // Create moderator user
+  const moderatorPassword = await bcrypt.hash("moderator123", 12);
+  const moderator = await prisma.user.upsert({
+    where: { email: "moderator@store.com" },
+    update: {},
+    create: {
+      email: "moderator@store.com",
+      username: "moderator",
+      password: moderatorPassword,
+      role: "MODERATOR",
+      avatar:
+        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+    },
+  });
+  console.log("✅ Moderator user created:", moderator.email);
+
+  // Create support user
+  const supportPassword = await bcrypt.hash("support123", 12);
+  const support = await prisma.user.upsert({
+    where: { email: "support@store.com" },
+    update: {},
+    create: {
+      email: "support@store.com",
+      username: "support",
+      password: supportPassword,
+      role: "SUPPORT",
+      avatar:
+        "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
+    },
+  });
+  console.log("✅ Support user created:", support.email);
+
+  // Create test user
+  const userPassword = await bcrypt.hash("user123", 12);
+  const user = await prisma.user.upsert({
+    where: { email: "user@store.com" },
+    update: {},
+    create: {
+      email: "user@store.com",
+      username: "testuser",
+      password: userPassword,
+      role: "USER",
+      avatar:
+        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face",
+    },
+  });
+  console.log("✅ Test user created:", user.email);
+
+  // Create networking products
+  const products = [
+    {
+      name: "Cisco Catalyst 2960-X Series Switch",
+      description:
+        "24-Port Gigabit Ethernet Switch with PoE+ support, ideal for small to medium businesses",
+      price: 1299.99,
+      stock: 15,
+      category: "Network Switches",
+      brand: "Cisco",
+      model: "WS-C2960X-24LPS-L",
+      imageUrl:
+        "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+      specifications: {
+        ports: "24 Gigabit Ethernet + 2 SFP",
+        powerConsumption: "370W",
+        switchingCapacity: "128 Gbps",
+        features: ["PoE+", "Layer 2", "Stacking", "SNMP"],
+      },
+    },
+    {
+      name: "Juniper EX4300-48T Switch",
+      description:
+        "48-Port 10/100/1000BASE-T Ethernet Switch with advanced routing capabilities",
+      price: 2499.99,
+      stock: 8,
+      category: "Network Switches",
+      brand: "Juniper",
+      model: "EX4300-48T",
+      imageUrl:
+        "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400&h=300&fit=crop",
+      specifications: {
+        ports: "48 Gigabit Ethernet + 4 SFP+",
+        powerConsumption: "450W",
+        switchingCapacity: "176 Gbps",
+        features: ["Layer 3", "VLAN", "QoS", "Security"],
+      },
+    },
+    {
+      name: "Ubiquiti UniFi Switch 24-Port",
+      description:
+        "24-Port Gigabit Managed Switch with UniFi Controller integration",
+      price: 399.99,
+      stock: 25,
+      category: "Network Switches",
+      brand: "Ubiquiti",
+      model: "USW-24",
+      imageUrl:
+        "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+      specifications: {
+        ports: "24 Gigabit Ethernet + 2 SFP",
+        powerConsumption: "25W",
+        switchingCapacity: "52 Gbps",
+        features: ["PoE", "VLAN", "UniFi Controller", "Cloud Management"],
+      },
+    },
+    {
+      name: "Cisco ISR 4321 Router",
+      description:
+        "Integrated Services Router with advanced security and connectivity features",
+      price: 899.99,
+      stock: 12,
+      category: "Network Routers",
+      brand: "Cisco",
+      model: "ISR4321/K9",
+      imageUrl:
+        "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400&h=300&fit=crop",
+      specifications: {
+        ports: "2 Gigabit Ethernet + 1 Console",
+        throughput: "100 Mbps",
+        memory: "2GB DRAM",
+        features: ["VPN", "Firewall", "QoS", "IPSec"],
+      },
+    },
+    {
+      name: "Juniper SRX300 Services Gateway",
+      description:
+        "Next-generation firewall with advanced threat protection and routing",
+      price: 1599.99,
+      stock: 10,
+      category: "Network Routers",
+      brand: "Juniper",
+      model: "SRX300",
+      imageUrl:
+        "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+      specifications: {
+        ports: "8 Gigabit Ethernet + 1 Console",
+        throughput: "1 Gbps",
+        memory: "4GB DRAM",
+        features: ["Firewall", "IPS", "VPN", "NAT"],
+      },
+    },
+    {
+      name: "MikroTik hAP ac² Router",
+      description:
+        "Dual-band wireless router with Gigabit Ethernet and advanced routing",
+      price: 109.99,
+      stock: 50,
+      category: "Network Routers",
+      brand: "MikroTik",
+      model: "RB952Ui-5ac2nD",
+      imageUrl:
+        "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400&h=300&fit=crop",
+      specifications: {
+        ports: "5 Gigabit Ethernet",
+        wireless: "802.11ac Dual-band",
+        throughput: "1 Gbps",
+        features: ["RouterOS", "VPN", "Firewall", "Hotspot"],
+      },
+    },
+    {
+      name: "Cisco Aironet 2800 Access Point",
+      description:
+        "802.11ac Wave 2 Wireless Access Point with advanced security",
+      price: 599.99,
+      stock: 20,
+      category: "Wireless Access Points",
+      brand: "Cisco",
+      model: "AIR-AP2800I-B-K9",
+      imageUrl:
+        "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+      specifications: {
+        wireless: "802.11ac Wave 2",
+        ports: "1 Gigabit Ethernet + 1 Console",
+        power: "PoE+",
+        features: ["MU-MIMO", "Beamforming", "Security", "Management"],
+      },
+    },
+    {
+      name: "Ubiquiti UniFi AP AC Pro",
+      description:
+        "802.11ac Dual-Radio Access Point with UniFi Controller integration",
+      price: 149.99,
+      stock: 35,
+      category: "Wireless Access Points",
+      brand: "Ubiquiti",
+      model: "UAP-AC-PRO",
+      imageUrl:
+        "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400&h=300&fit=crop",
+      specifications: {
+        wireless: "802.11ac Dual-band",
+        ports: "1 Gigabit Ethernet",
+        power: "PoE",
+        features: ["UniFi Controller", "Mesh", "Guest Portal", "Analytics"],
+      },
+    },
+    {
+      name: "Cisco ASA 5506-X Firewall",
+      description:
+        "Next-generation firewall with advanced threat protection and VPN capabilities",
+      price: 1299.99,
+      stock: 8,
+      category: "Network Security",
+      brand: "Cisco",
+      model: "ASA5506-X",
+      imageUrl:
+        "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+      specifications: {
+        ports: "8 Gigabit Ethernet",
+        throughput: "1.2 Gbps",
+        vpn: "500 concurrent sessions",
+        features: ["Firewall", "IPS", "VPN", "Malware Protection"],
+      },
+    },
+    {
+      name: "Fortinet FortiGate 60F",
+      description:
+        "Next-generation firewall with SD-WAN and advanced security features",
+      price: 899.99,
+      stock: 15,
+      category: "Network Security",
+      brand: "Fortinet",
+      model: "FG-60F",
+      imageUrl:
+        "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400&h=300&fit=crop",
+      specifications: {
+        ports: "8 Gigabit Ethernet + 2 SFP",
+        throughput: "1.5 Gbps",
+        vpn: "1000 concurrent sessions",
+        features: ["SD-WAN", "IPS", "Web Filter", "Sandbox"],
+      },
+    },
+    {
+      name: "HP ProCurve 2530-48G Switch",
+      description:
+        "48-Port Gigabit Ethernet Switch with advanced management features",
+      price: 799.99,
+      stock: 18,
+      category: "Network Switches",
+      brand: "HP",
+      model: "J9774A",
+      imageUrl:
+        "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop",
+      specifications: {
+        ports: "48 Gigabit Ethernet + 4 SFP",
+        powerConsumption: "120W",
+        switchingCapacity: "104 Gbps",
+        features: ["Layer 2", "VLAN", "SNMP", "Web Management"],
+      },
+    },
+    {
+      name: "Netgear GS724Tv4 Switch",
+      description: "24-Port Gigabit Smart Managed Plus Switch with PoE support",
+      price: 299.99,
+      stock: 30,
+      category: "Network Switches",
+      brand: "Netgear",
+      model: "GS724Tv4",
+      imageUrl:
+        "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400&h=300&fit=crop",
+      specifications: {
+        ports: "24 Gigabit Ethernet + 2 SFP",
+        powerConsumption: "45W",
+        switchingCapacity: "56 Gbps",
+        features: ["PoE", "VLAN", "QoS", "Web Management"],
+      },
+    },
+  ];
+
+  for (const productData of products) {
+    try {
+      const product = await prisma.product.create({
+        data: productData,
+      });
+      console.log(`✅ Product created: ${product.name}`);
+    } catch (error) {
+      if (error.code === "P2002") {
+        console.log(`⚠️ Product already exists: ${productData.name}`);
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  // Create sample orders
+  const order1 = await prisma.order.create({
+    data: {
+      userId: user.id,
+      total: 399.98,
+      status: "CONFIRMED",
+      address: "123 Main St, New York, NY 10001, USA",
+      phone: "+1-555-0123",
+      deliveryMethod: "Standard Shipping",
+      shippingAddress: {
+        street: "123 Main St",
+        city: "New York",
+        state: "NY",
+        zipCode: "10001",
+        country: "USA",
+      },
+      notes: "Please deliver during business hours",
+      items: {
+        create: [
+          {
+            productId: (
+              await prisma.product.findFirst({
+                where: { name: "Ubiquiti UniFi Switch 24-Port" },
+              })
+            ).id,
+            quantity: 1,
+            price: 399.99,
+          },
+        ],
+      },
+    },
+  });
+  console.log("✅ Sample order created:", order1.id);
+
+  const order2 = await prisma.order.create({
+    data: {
+      userId: user.id,
+      total: 89.99,
+      status: "PENDING",
+      address: "456 Oak Ave, Los Angeles, CA 90210, USA",
+      phone: "+1-555-0456",
+      deliveryMethod: "Express Delivery",
+      shippingAddress: {
+        street: "456 Oak Ave",
+        city: "Los Angeles",
+        state: "CA",
+        zipCode: "90210",
+        country: "USA",
+      },
+      items: {
+        create: [
+          {
+            productId: (
+              await prisma.product.findFirst({
+                where: { name: "MikroTik hAP ac² Router" },
+              })
+            ).id,
+            quantity: 1,
+            price: 89.99,
+          },
+        ],
+      },
+    },
+  });
+  console.log("✅ Sample order created:", order2.id);
+
+  // Create additional sample orders with different scenarios
+  const order3 = await prisma.order.create({
+    data: {
+      userId: user.id,
+      total: 1299.99,
+      status: "SHIPPED",
+      address: "789 Pine St, Chicago, IL 60601, USA",
+      phone: "+1-555-0789",
+      deliveryMethod: "Premium Shipping",
+      shippingAddress: {
+        street: "789 Pine St",
+        city: "Chicago",
+        state: "IL",
+        zipCode: "60601",
+        country: "USA",
+      },
+      notes: "Fragile items - handle with care",
+      items: {
+        create: [
+          {
+            productId: (
+              await prisma.product.findFirst({
+                where: { name: "Cisco Catalyst 2960-X Series Switch" },
+              })
+            ).id,
+            quantity: 1,
+            price: 1299.99,
+          },
+        ],
+      },
+    },
+  });
+  console.log("✅ Sample order created:", order3.id);
+
+  const order4 = await prisma.order.create({
+    data: {
+      userId: user.id,
+      total: 2499.99,
+      status: "DELIVERED",
+      address: "321 Elm St, Miami, FL 33101, USA",
+      phone: "+1-555-0321",
+      deliveryMethod: "Standard Shipping",
+      shippingAddress: {
+        street: "321 Elm St",
+        city: "Miami",
+        state: "FL",
+        zipCode: "33101",
+        country: "USA",
+      },
+      items: {
+        create: [
+          {
+            productId: (
+              await prisma.product.findFirst({
+                where: { name: "Juniper EX4300-48T Switch" },
+              })
+            ).id,
+            quantity: 1,
+            price: 2499.99,
+          },
+        ],
+      },
+    },
+  });
+  console.log("✅ Sample order created:", order4.id);
+
+  // Create sample chat rooms
+  const supportRoom = await prisma.chatRoom.create({
+    data: {
+      name: "Technical Support",
+      type: "SUPPORT",
+      members: {
+        create: [
+          { userId: user.id, role: "MEMBER" },
+          { userId: support.id, role: "ADMIN" },
+        ],
+      },
+    },
+  });
+  console.log("✅ Support chat room created:", supportRoom.id);
+
+  const directRoom = await prisma.chatRoom.create({
+    data: {
+      type: "DIRECT",
+      members: {
+        create: [
+          { userId: user.id, role: "MEMBER" },
+          { userId: admin.id, role: "MEMBER" },
+        ],
+      },
+    },
+  });
+  console.log("✅ Direct chat room created:", directRoom.id);
+
+  // Create sample messages
+  const message1 = await prisma.message.create({
+    data: {
+      roomId: supportRoom.id,
+      senderId: user.id,
+      content: "Hi, I need help with my network configuration",
+      type: "TEXT",
+    },
+  });
+  console.log("✅ Sample message created:", message1.id);
+
+  const message2 = await prisma.message.create({
+    data: {
+      roomId: supportRoom.id,
+      senderId: support.id,
+      content:
+        "Hello! I'd be happy to help you with your network configuration. What specific issue are you experiencing?",
+      type: "TEXT",
+    },
+  });
+  console.log("✅ Sample message created:", message2.id);
+
+  console.log("🎉 Database seeding completed successfully!");
+  console.log("\n📋 Sample Data:");
+  console.log("- Admin: admin@store.com / admin123");
+  console.log("- Moderator: moderator@store.com / moderator123");
+  console.log("- Support: support@store.com / support123");
+  console.log("- User: user@store.com / user123");
+  console.log("- Products: 12 networking products created");
+  console.log("- Orders: 4 sample orders created");
+  console.log("- Chat Rooms: 2 sample rooms created");
+  console.log("- Messages: 2 sample messages created");
+}
+
+main()
+  .catch((e) => {
+    console.error("❌ Seeding failed:", e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

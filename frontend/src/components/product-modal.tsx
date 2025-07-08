@@ -247,14 +247,14 @@ export function ProductModal({ isOpen, onClose, product, onSave, mode }: Product
             />
           </div>
 
-          <div className="flex items-center space-x-2">
+          {/* <div className="flex items-center space-x-2">
             <Switch
               id="isActive"
               checked={formData.isActive}
               onCheckedChange={(checked) => handleInputChange('isActive', checked)}
             />
             <Label htmlFor="isActive">Product is active</Label>
-          </div>
+          </div> */}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>

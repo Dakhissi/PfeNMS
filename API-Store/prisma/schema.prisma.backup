@@ -57,9 +57,6 @@ model Order {
   userId    String
   status    OrderStatus @default(PENDING)
   total     Decimal     @db.Decimal(10, 2)
-  address   String?
-  phone     String?
-  deliveryMethod String?
   shippingAddress Json?
   notes     String?
   createdAt DateTime    @default(now())
@@ -166,4 +163,4 @@ enum MessageType {
   IMAGE
   FILE
   SYSTEM
-}
+} 

@@ -22,14 +22,14 @@ async function main() {
   });
   console.log("✅ Admin user created:", admin.email);
 
-  // Create simple admin account with username "admin2" and password "admin"
+  // Create simple admin account with username "admin" and password "admin"
   const simpleAdminPassword = await bcrypt.hash("admin", 12);
   const simpleAdmin = await prisma.user.upsert({
     where: { email: "admin@admin.com" },
     update: {},
     create: {
       email: "admin@admin.com",
-      username: "admin2",
+      username: "admin",
       password: simpleAdminPassword,
       role: "ADMIN",
       avatar:
@@ -38,14 +38,14 @@ async function main() {
   });
   console.log("✅ Simple admin user created:", simpleAdmin.email);
 
-  // Create another admin account with username "admin3" and password "admin"
+  // Create another admin account with simple credentials
   const simpleAdmin2Password = await bcrypt.hash("admin", 12);
   const simpleAdmin2 = await prisma.user.upsert({
     where: { email: "admin@simple.com" },
     update: {},
     create: {
       email: "admin@simple.com",
-      username: "admin3",
+      username: "admin2",
       password: simpleAdmin2Password,
       role: "ADMIN",
       avatar:
@@ -342,9 +342,6 @@ async function main() {
       userId: user.id,
       total: 399.98,
       status: "CONFIRMED",
-      address: "123 Main St, New York, NY 10001, USA",
-      phone: "+1-555-0123",
-      deliveryMethod: "Standard Shipping",
       shippingAddress: {
         street: "123 Main St",
         city: "New York",
@@ -375,9 +372,6 @@ async function main() {
       userId: user.id,
       total: 89.99,
       status: "PENDING",
-      address: "456 Oak Ave, Los Angeles, CA 90210, USA",
-      phone: "+1-555-0456",
-      deliveryMethod: "Express Delivery",
       shippingAddress: {
         street: "456 Oak Ave",
         city: "Los Angeles",
@@ -401,72 +395,6 @@ async function main() {
     },
   });
   console.log("✅ Sample order created:", order2.id);
-
-  // Create additional sample orders with different scenarios
-  const order3 = await prisma.order.create({
-    data: {
-      userId: user.id,
-      total: 1299.99,
-      status: "SHIPPED",
-      address: "789 Pine St, Chicago, IL 60601, USA",
-      phone: "+1-555-0789",
-      deliveryMethod: "Premium Shipping",
-      shippingAddress: {
-        street: "789 Pine St",
-        city: "Chicago",
-        state: "IL",
-        zipCode: "60601",
-        country: "USA",
-      },
-      notes: "Fragile items - handle with care",
-      items: {
-        create: [
-          {
-            productId: (
-              await prisma.product.findFirst({
-                where: { name: "Cisco Catalyst 2960-X Series Switch" },
-              })
-            ).id,
-            quantity: 1,
-            price: 1299.99,
-          },
-        ],
-      },
-    },
-  });
-  console.log("✅ Sample order created:", order3.id);
-
-  const order4 = await prisma.order.create({
-    data: {
-      userId: user.id,
-      total: 2499.99,
-      status: "DELIVERED",
-      address: "321 Elm St, Miami, FL 33101, USA",
-      phone: "+1-555-0321",
-      deliveryMethod: "Standard Shipping",
-      shippingAddress: {
-        street: "321 Elm St",
-        city: "Miami",
-        state: "FL",
-        zipCode: "33101",
-        country: "USA",
-      },
-      items: {
-        create: [
-          {
-            productId: (
-              await prisma.product.findFirst({
-                where: { name: "Juniper EX4300-48T Switch" },
-              })
-            ).id,
-            quantity: 1,
-            price: 2499.99,
-          },
-        ],
-      },
-    },
-  });
-  console.log("✅ Sample order created:", order4.id);
 
   // Create sample chat rooms
   const supportRoom = await prisma.chatRoom.create({
@@ -525,7 +453,7 @@ async function main() {
   console.log("- Support: support@store.com / support123");
   console.log("- User: user@store.com / user123");
   console.log("- Products: 12 networking products created");
-  console.log("- Orders: 4 sample orders created");
+  console.log("- Orders: 2 sample orders created");
   console.log("- Chat Rooms: 2 sample rooms created");
   console.log("- Messages: 2 sample messages created");
 }

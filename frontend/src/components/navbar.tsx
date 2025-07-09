@@ -3,10 +3,17 @@ import { Network, LogOut, Server, Search, ShoppingCart, Database } from "lucide-
 import { Link, useLocation } from "react-router-dom"
 import { useAuth } from "@/lib/auth-hooks"
 import { Button } from "@/components/ui/button"
+import { useContext } from "react"
+import { StoreAuthContext } from "@/lib/store-auth-context-definition"
 
 export function Navbar() {
   const location = useLocation()
   const { isAuthenticated, logout, user } = useAuth()
+  
+  // Check if we're in store context and get store auth
+  const storeAuthContext = useContext(StoreAuthContext)
+  const isStoreAuthenticated = storeAuthContext?.isAuthenticated
+  const storeUser = storeAuthContext?.user
   
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -75,22 +82,27 @@ export function Navbar() {
               >
                 Home
               </Link>
-              <Link
-                to="/login"
-                className={`transition-colors hover:text-foreground/80 ${
-                  location.pathname === "/login" ? "text-foreground" : "text-foreground/60"
-                }`}
-              >
-                Login
-              </Link>
-              <Link
-                to="/register"
-                className={`transition-colors hover:text-foreground/80 ${
-                  location.pathname === "/register" ? "text-foreground" : "text-foreground/60"
-                }`}
-              >
-                Register
-              </Link>
+              {/* Only show login/register if not authenticated in store */}
+              {!isStoreAuthenticated && (
+                <>
+                  <Link
+                    to="/login"
+                    className={`transition-colors hover:text-foreground/80 ${
+                      location.pathname === "/login" ? "text-foreground" : "text-foreground/60"
+                    }`}
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/register"
+                    className={`transition-colors hover:text-foreground/80 ${
+                      location.pathname === "/register" ? "text-foreground" : "text-foreground/60"
+                    }`}
+                  >
+                    Register
+                  </Link>
+                </>
+              )}
               
               {/* Store link - visible to anonymous users only */}
               <Link
@@ -127,6 +139,25 @@ export function Navbar() {
               </Button>
             </div>
           )}
+          
+          {/* Show store user info if authenticated in store */}
+          {isStoreAuthenticated && storeUser && (
+            <div className="flex items-center space-x-3">
+              <span className="text-sm text-muted-foreground">
+                Store: {storeUser.username}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => storeAuthContext?.logout()}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Store Logout
+              </Button>
+            </div>
+          )}
+          
           <ThemeToggle />
         </div>
       </div>

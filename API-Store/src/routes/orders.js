@@ -16,17 +16,17 @@ router.get(
   validatePagination,
   orderController.getUserOrders
 );
-router.get(
-  "/my-orders/:id",
-  authenticateToken,
-  validateId,
-  orderController.getOrder
-);
+
 router.put(
   "/my-orders/:id/cancel",
   authenticateToken,
-  validateId,
   orderController.cancelOrder
+);
+router.get("/my-orders/:id", authenticateToken, orderController.getOrder);
+router.put(
+  "/my-orders/:id/update",
+  authenticateToken,
+  orderController.updateOrderDetails
 );
 
 // Admin routes

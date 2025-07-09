@@ -3,7 +3,7 @@ const { prisma } = require("../config/database");
 // Create new order
 const createOrder = async (req, res) => {
   try {
-    const { items } = req.body;
+    const { items, address, phone, deliveryMethod, notes } = req.body;
     const userId = req.user.id;
 
     // Validate items and calculate total
@@ -44,6 +44,10 @@ const createOrder = async (req, res) => {
         data: {
           userId,
           total,
+          address,
+          phone,
+          deliveryMethod,
+          notes,
           items: {
             create: orderItems,
           },
@@ -197,6 +201,84 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
+// Update order details (user can only update pending orders)
+const updateOrderDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { address, phone, deliveryMethod, notes } = req.body;
+    const userId = req.user.id;
+
+    console.log("Update order details called with:", {
+      id,
+      userId,
+      address,
+      phone,
+      deliveryMethod,
+      notes,
+    });
+
+    console.log("Update order details called with:", {
+      id,
+      userId,
+      address,
+      phone,
+      deliveryMethod,
+      notes,
+    });
+
+    const order = await prisma.order.findFirst({
+      where: {
+        id,
+        userId,
+      },
+    });
+
+    if (!order) {
+      console.log("Order not found:", id);
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    console.log("Found order:", order.id, "status:", order.status);
+
+    if (order.status !== "PENDING") {
+      console.log("Order is not pending, cannot update");
+      return res.status(400).json({
+        error: "Only pending orders can be updated",
+      });
+    }
+
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data: {
+        address,
+        phone,
+        deliveryMethod,
+        notes,
+      },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    console.log("Order updated successfully:", updatedOrder.id);
+
+    res.json({
+      message: "Order updated successfully",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    console.error("Update order details error:", error);
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Order not found" });
+    }
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 // Get all orders (admin only)
 const getAllOrders = async (req, res) => {
   try {
@@ -254,6 +336,8 @@ const cancelOrder = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
+    console.log("Cancel order called with:", { id, userId });
+
     const order = await prisma.order.findFirst({
       where: {
         id,
@@ -265,10 +349,19 @@ const cancelOrder = async (req, res) => {
     });
 
     if (!order) {
+      console.log("Order not found for cancellation:", id);
       return res.status(404).json({ error: "Order not found" });
     }
 
+    console.log(
+      "Found order for cancellation:",
+      order.id,
+      "status:",
+      order.status
+    );
+
     if (order.status !== "PENDING") {
+      console.log("Order is not pending, cannot cancel");
       return res.status(400).json({
         error: "Only pending orders can be cancelled",
       });
@@ -294,6 +387,8 @@ const cancelOrder = async (req, res) => {
       }
     });
 
+    console.log("Order cancelled successfully:", id);
+
     res.json({ message: "Order cancelled successfully" });
   } catch (error) {
     console.error("Cancel order error:", error);
@@ -306,6 +401,7 @@ module.exports = {
   getUserOrders,
   getOrder,
   updateOrderStatus,
+  updateOrderDetails,
   getAllOrders,
   cancelOrder,
 };

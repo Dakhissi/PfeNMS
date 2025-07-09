@@ -41,20 +41,28 @@ app.use(
 // CORS configuration
 app.use(
   cors({
-    origin: process.env.SOCKET_CORS_ORIGIN || "http://localhost:3000",
+    origin: [
+      "http://localhost:5173", // Vite default port
+      "http://127.0.0.1:5173",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      process.env.SOCKET_CORS_ORIGIN,
+    ].filter(Boolean),
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
 
 // Rate limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
-  message: {
-    error: "Too many requests from this IP, please try again later.",
-  },
-});
-app.use(limiter);
+// const limiter = rateLimit({
+//   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+//   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+//   message: {
+//     error: "Too many requests from this IP, please try again later.",
+//   },
+// });
+// app.use(limiter);
 
 // Compression middleware
 app.use(compression());

@@ -20,6 +20,7 @@ import { ProductModal } from "@/components/product-modal"
 import { ProductViewModal } from "@/components/product-view-modal"
 import { OrderViewModal } from "@/components/order-view-modal"
 import { OrderFilters } from "@/components/order-filters"
+import { QuantityVerification } from "@/components/quantity-verification"
 
 interface DashboardStats {
   totalUsers: number
@@ -678,6 +679,9 @@ export function StoreAdminPage() {
               </div>
             </CardContent>
           </Card>
+          
+          {/* Stock Verification */}
+          <QuantityVerification />
         </TabsContent>
 
         {/* Orders Tab */}

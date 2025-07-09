@@ -7,6 +7,7 @@ import { Navbar } from "@/components/navbar"
 import { StoreLayout } from "@/components/store-layout"
 import { ProtectedRoute, PublicRoute } from "@/components/protected-route"
 import { AuthRedirect } from "@/components/auth-redirect"
+import { Toaster } from "@/components/ui/toaster"
 import { HomePage } from "@/pages/home"
 import { LoginPage } from "@/pages/login"
 import { RegisterPage } from "@/pages/register"
@@ -19,6 +20,8 @@ import { DiscoveryStartPage } from "@/pages/discovery-start"
 import { StorePage } from "@/pages/store"
 import { StoreLoginPage } from "@/pages/store-login"
 import { StoreRegisterPage } from "@/pages/store-register"
+import { StoreAccountPage } from "@/pages/store-account"
+import { StoreCheckoutPage } from "@/pages/store-checkout"
 import { StoreAdminLoginPage } from "@/pages/store-admin-login"
 import { StoreAdminPage } from "@/pages/store-admin"
 import { MibBrowserPage } from "@/pages/mib-browser"
@@ -60,6 +63,20 @@ function App() {
                 <StoreAuthProvider>
                   <StoreLayout>
                     <StoreRegisterPage />
+                  </StoreLayout>
+                </StoreAuthProvider>
+              } />
+              <Route path="/store/account" element={
+                <StoreAuthProvider>
+                  <StoreLayout>
+                    <StoreAccountPage />
+                  </StoreLayout>
+                </StoreAuthProvider>
+              } />
+              <Route path="/store/checkout" element={
+                <StoreAuthProvider>
+                  <StoreLayout>
+                    <StoreCheckoutPage />
                   </StoreLayout>
                 </StoreAuthProvider>
               } />
@@ -188,6 +205,7 @@ function App() {
             </Routes>
           </AuthProvider>
         </Router>
+        <Toaster />
       </ThemeProvider>
     </QueryClientProvider>
   )
